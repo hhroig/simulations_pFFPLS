@@ -9,17 +9,15 @@ library(writexl)
 
 beta_num_to_text <- function(beta_num_in) {
   if (beta_num_in == 1) {
-    beta_txt = "symm" # symmetrical function
-  }else if (beta_num_in == 2) {
-    beta_txt = "exp" # single exponential top right corner
-  }else if (beta_num_in == 3) {
-    beta_txt = "saddle" # a horse saddle
-  }else if (beta_num_in == 4) {
-    beta_txt = "dbl_exp" # a double exponential top right and bottom left
+    beta_txt = "cos_sin"   # separable: cos(p*pi/3)*sin(q*pi/5)
+  } else if (beta_num_in == 2) {
+    beta_txt = "sin_sum"   # diagonal wave: sin(3*pi*(p+q))
+  } else if (beta_num_in == 3) {
+    beta_txt = "cos_sum"   # multi-frequency: sum of cosines along (p+q)
   }
-  
+
   return(beta_txt)
-  
+
 }
 
 compare_methods_fun <- function(input_folder, 
@@ -123,20 +121,35 @@ compare_methods_fun <- function(input_folder,
   }
   
   # All R^2 files:
-  
+
   all_best_r2 <- data.frame()
-  
+
   all_best_r2_files <- list.files(path = input_folder, pattern = "R2s_rep")
-  
+
   for (ind_file in all_best_r2_files) {
-    
+
     all_best_r2 <- rbind(
       all_best_r2,
       readRDS(paste0(input_folder, ind_file))
     )
-    
+
   }
-  
+
+  # All fR^2 files:
+
+  all_fr2 <- data.frame()
+
+  all_fr2_files <- list.files(path = input_folder, pattern = "fR2s_rep")
+
+  for (ind_file in all_fr2_files) {
+
+    all_fr2 <- rbind(
+      all_fr2,
+      readRDS(paste0(input_folder, ind_file))
+    )
+
+  }
+
   # Betas files:
   
   all_betas <- data.frame()
@@ -168,9 +181,12 @@ compare_methods_fun <- function(input_folder,
   all_betas <- all_betas %>%
     mutate(nComp = as.factor(nComp))
   
+  all_fr2 <- all_fr2 %>%
+    mutate(nComp = as.factor(nComp))
+
   if (nrow(all_best_num_bases_FFPLS) > 0) {
     all_best_num_bases_FFPLS <- all_best_num_bases_FFPLS %>%
-      mutate(nComp = as.factor(nComp)) 
+      mutate(nComp = as.factor(nComp))
   }
   
   
@@ -1096,6 +1112,190 @@ compare_methods_fun <- function(input_folder,
   } # loop ncomponents
   
   
+  # fR^2 -------------------------------------------------------------------
+
+  out_folder_fR2 <- paste0(out_folder, "fR2/")
+
+  if (!dir.exists(out_folder_fR2)) {
+    dir.create(out_folder_fR2)
+  }
+
+  # Excel summary table
+  all_fr2_summ <- all_fr2 %>%
+    group_by(method, nComp, beta.num) %>%
+    summarize(
+      mean_fR2_train   = mean(fR2_train,  na.rm = TRUE),
+      median_fR2_train = median(fR2_train, na.rm = TRUE),
+      sd_fR2_train     = sd(fR2_train,    na.rm = TRUE),
+      iqr_fR2_train    = IQR(fR2_train,   na.rm = TRUE),
+      mean_fR2_val     = mean(fR2_val,    na.rm = TRUE),
+      median_fR2_val   = median(fR2_val,  na.rm = TRUE),
+      sd_fR2_val       = sd(fR2_val,      na.rm = TRUE),
+      iqr_fR2_val      = IQR(fR2_val,     na.rm = TRUE),
+      .groups = "drop"
+    )
+  write_xlsx(all_fr2_summ, paste0(out_folder_fR2, "summary_fR2.xlsx"))
+
+  # Long format for faceted train/test plots
+  all_fr2_long <- all_fr2 %>%
+    pivot_longer(cols      = c(fR2_train, fR2_val),
+                 names_to  = "partition",
+                 names_prefix = "fR2_",
+                 values_to = "fR2") %>%
+    mutate(partition = recode(partition, train = "Training", val = "Test"))
+
+  for (beta_num in unique(all_fr2$beta.num)) {
+
+    # Combined train + test (faceted by partition)
+    p_fr2_both <- ggplot(all_fr2_long %>% filter(beta.num == beta_num),
+                         aes(x = nComp, y = fR2, fill = method)) +
+      facet_wrap(~partition) +
+      geom_boxplot(position = position_dodge(0.8)) +
+      ylab(expression(fR^2)) +
+      xlab("# of components") +
+      scale_fill_manual(values = color_codes) +
+      theme_bw() +
+      theme(legend.position = "bottom", text = element_text(size = 20)) +
+      labs(fill = "")
+
+    if (!is.null(dev.list())) dev.off()
+
+    ggsave(p_fr2_both,
+           filename = paste0(out_folder_fR2,
+                             paste0("fR2_beta_", beta_num_to_text(beta_num), ".png")),
+           width = 16, height = 8)
+
+    if (!is.null(dev.list())) dev.off()
+
+    ggsave(p_fr2_both,
+           filename = paste0(out_folder_fR2,
+                             paste0("fR2_beta_", beta_num_to_text(beta_num), ".pdf")),
+           width = 16, height = 8)
+
+    if (!is.null(dev.list())) dev.off()
+
+
+    # Training fR^2 only
+    p_fr2_train <- ggplot(all_fr2 %>% filter(beta.num == beta_num),
+                          aes(x = nComp, y = fR2_train, fill = method)) +
+      geom_boxplot(position = position_dodge(0.8)) +
+      ylab(expression("Training: " * fR^2)) +
+      xlab("# of components") +
+      scale_fill_manual(values = color_codes) +
+      theme_bw() +
+      theme(legend.position = "bottom", text = element_text(size = 20)) +
+      labs(fill = "")
+
+    if (!is.null(dev.list())) dev.off()
+
+    ggsave(p_fr2_train,
+           filename = paste0(out_folder_fR2,
+                             paste0("fR2_train_beta_", beta_num_to_text(beta_num), ".png")),
+           width = 12, height = 8)
+
+    if (!is.null(dev.list())) dev.off()
+
+    ggsave(p_fr2_train,
+           filename = paste0(out_folder_fR2,
+                             paste0("fR2_train_beta_", beta_num_to_text(beta_num), ".pdf")),
+           width = 12, height = 8)
+
+    if (!is.null(dev.list())) dev.off()
+
+
+    # Test fR^2 only
+    p_fr2_val <- ggplot(all_fr2 %>% filter(beta.num == beta_num),
+                        aes(x = nComp, y = fR2_val, fill = method)) +
+      geom_boxplot(position = position_dodge(0.8)) +
+      ylab(expression("Test: " * fR^2)) +
+      xlab("# of components") +
+      scale_fill_manual(values = color_codes) +
+      theme_bw() +
+      theme(legend.position = "bottom", text = element_text(size = 20)) +
+      labs(fill = "")
+
+    if (!is.null(dev.list())) dev.off()
+
+    ggsave(p_fr2_val,
+           filename = paste0(out_folder_fR2,
+                             paste0("fR2_test_beta_", beta_num_to_text(beta_num), ".png")),
+           width = 12, height = 8)
+
+    if (!is.null(dev.list())) dev.off()
+
+    ggsave(p_fr2_val,
+           filename = paste0(out_folder_fR2,
+                             paste0("fR2_test_beta_", beta_num_to_text(beta_num), ".pdf")),
+           width = 12, height = 8)
+
+    if (!is.null(dev.list())) dev.off()
+
+
+    # Per-nComp disaggregated plots (mirrors the IMSE disaggregated section)
+    for (opt_comp in unique(all_fr2$nComp)) {
+
+      p_fr2_nc_train <- ggplot(all_fr2 %>% filter(beta.num == beta_num, nComp == opt_comp),
+                               aes(x = method, y = fR2_train, fill = method)) +
+        geom_boxplot(position = position_dodge(0.8)) +
+        ylab(expression("Training: " * fR^2)) +
+        xlab("") +
+        scale_fill_manual(values = color_codes) +
+        theme_bw() +
+        theme(legend.position = "none", text = element_text(size = 20)) +
+        labs(fill = "", subtitle = paste0("PLS methods using ", opt_comp, " components"))
+
+      if (!is.null(dev.list())) dev.off()
+
+      ggsave(p_fr2_nc_train,
+             filename = paste0(out_folder_fR2,
+                               paste0("fR2_train_", beta_num_to_text(beta_num),
+                                      "_ncomp", opt_comp, ".png")),
+             width = 8, height = 6)
+
+      if (!is.null(dev.list())) dev.off()
+
+      ggsave(p_fr2_nc_train,
+             filename = paste0(out_folder_fR2,
+                               paste0("fR2_train_", beta_num_to_text(beta_num),
+                                      "_ncomp", opt_comp, ".pdf")),
+             width = 8, height = 6)
+
+      if (!is.null(dev.list())) dev.off()
+
+
+      p_fr2_nc_val <- ggplot(all_fr2 %>% filter(beta.num == beta_num, nComp == opt_comp),
+                             aes(x = method, y = fR2_val, fill = method)) +
+        geom_boxplot(position = position_dodge(0.8)) +
+        ylab(expression("Test: " * fR^2)) +
+        xlab("") +
+        scale_fill_manual(values = color_codes) +
+        theme_bw() +
+        theme(legend.position = "none", text = element_text(size = 20)) +
+        labs(fill = "", subtitle = paste0("PLS methods using ", opt_comp, " components"))
+
+      if (!is.null(dev.list())) dev.off()
+
+      ggsave(p_fr2_nc_val,
+             filename = paste0(out_folder_fR2,
+                               paste0("fR2_test_", beta_num_to_text(beta_num),
+                                      "_ncomp", opt_comp, ".png")),
+             width = 8, height = 6)
+
+      if (!is.null(dev.list())) dev.off()
+
+      ggsave(p_fr2_nc_val,
+             filename = paste0(out_folder_fR2,
+                               paste0("fR2_test_", beta_num_to_text(beta_num),
+                                      "_ncomp", opt_comp, ".pdf")),
+             width = 8, height = 6)
+
+      if (!is.null(dev.list())) dev.off()
+
+    } # loop nComp
+
+  } # loop beta.num
+
+
   # Betas -------------------------------------------------------------------
   
   df_true_betas <- all_betas %>% 

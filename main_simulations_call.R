@@ -163,7 +163,7 @@ main_simulations_call <- function(
 global_num_lambdas = 3
 global_total_reps = 3
 global_start_reps = 1
-global_betas = 1:4
+global_betas = 1:3
 
 
 # Setting 1:

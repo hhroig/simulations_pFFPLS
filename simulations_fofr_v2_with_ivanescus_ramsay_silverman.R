@@ -3,34 +3,93 @@
 ## Adapt the same method we have for cv_unique_fof_par to this case...
 
 
-# Re-do beta function for Ivanescu's --------------------------------------
+# Local override of generate_fofr_data with the three new beta functions --
 
-redo_beta_true <- function(q, p, nbeta) {
-  
+generate_fofr_data <- function(nbasisX = 7, nbasisY = 5, nbeta = 1,
+                               nnodesX = 99, nnodesY = 98,
+                               Rsq = 0.9, n = 100, n_validation = 50) {
+
+  K  <- nbasisX
+  L  <- nbasisY
+  TX <- 1
+  TY <- 1
+
+  phiX <- fda::create.bspline.basis(c(0, TX), nbasis = K)
+  phiY <- fda::create.bspline.basis(c(0, TY), nbasis = L)
+
+  n <- n + n_validation
+
+  alpha <- matrix(stats::runif(n * K, -1, 1), nrow = n)
+  X     <- fda::fd(t(alpha), phiX)
+
+  p <- seq(0, TX, length.out = nnodesX)
+  q <- seq(0, TY, length.out = nnodesY)
+
   if (nbeta == 1) {
+    f <- function(q, p) cos(2 * pi * p) * sin(2 * pi * q)
+  } else if (nbeta == 2) {
+    f <- function(q, p) sin(3 * pi * (p + q))
+  } else if (nbeta == 3) {
     f <- function(q, p) {
-      return((q - p)^2)
+      0.5 * cos(0.5 * pi * (p + q)) +
+        cos(1.5 * pi * (p + q)) +
+        2   * cos(2.5 * pi * (p + q))
     }
   }
+
+  beta    <- outer(q, p, f)
+  beta_fd <- fda::Data2fd(t(beta), argvals = p, phiX)
+
+  Xc_fd    <- fda::center.fd(X)
+  Xmean_fd <- fda::mean.fd(X)
+
+  Y_clean <- fda::inprod(Xc_fd, beta_fd)
+  Y       <- Y_clean
+
+  for (q_ind in 1:length(q)) {
+    var_e       <- (1 / Rsq - 1) * stats::var(Y_clean[, q_ind])
+    Y[, q_ind]  <- Y_clean[, q_ind] +
+      as.matrix(stats::rnorm(n = nrow(Y_clean), mean = 0, sd = sqrt(var_e)))
+  }
+
+  X         <- t(fda::eval.fd(evalarg = p, fdobj = X))
+  beta_true <- beta
+  Xc        <- t(fda::eval.fd(evalarg = p, fdobj = Xc_fd))
+
+  n_traintest <- n - n_validation
+
+  out <- list(
+    Xc       = Xc[1:n_traintest, ],
+    X        = X[1:n_traintest, ],
+    Y        = Y[1:n_traintest, ],
+    beta_true = beta_true,
+    Xc_val   = Xc[(n_traintest + 1):nrow(Xc), ],
+    X_val    = X[(n_traintest + 1):nrow(X), ],
+    Y_val    = Y[(n_traintest + 1):nrow(X), ]
+  )
+
+  return(out)
+}
+
+
+# Re-do beta function for Ivanescu's (evaluated on pffr's internal grid) --
+
+redo_beta_true <- function(q, p, nbeta) {
+
+  if (nbeta == 1) {
+    f <- function(q, p) cos(2 * pi * p) * sin(2 * pi * q)
+  }
   else if (nbeta == 2) {
-    f <- function(q, p) {
-      return(5 * exp(-((p - 0.75)^2 + (q - 0.75)^2)/(2 * 
-                                                       0.2^2)))
-    }
+    f <- function(q, p) sin(3 * pi * (p + q))
   }
   else if (nbeta == 3) {
     f <- function(q, p) {
-      return(((p * 4 - 2)^3 - 3 * (p * 4 - 2) * ((q * 
-                                                    4 - 2)^2)))
+      0.5 * cos(0.5 * pi * (p + q)) +
+        cos(1.5 * pi * (p + q)) +
+        2   * cos(2.5 * pi * (p + q))
     }
   }
-  else if (nbeta == 4) {
-    f <- function(q, p) {
-      return(5 * exp(-((p - 0.75)^2 + (q - 0.75)^2)/(2 * 0.25^2)) + 
-               5 * exp(-((p - 0.1)^2 + (q - 0.1)^2)/(2 * 0.25^2)))
-    }
-  }
-  
+
   return(outer(q, p, f))
 }
 
@@ -39,17 +98,26 @@ redo_beta_true <- function(q, p, nbeta) {
 # R2 function on q --------------------------------------
 
 R_sqr_function <- function(y_true, y_pred) {
-  
+
   y_mean <- colMeans(y_true)
-  
+
   SST <- colMeans((y_true - y_mean)^2)
-  SSR <- colMeans((y_true - y_pred)^2)  
-  
+  SSR <- colMeans((y_true - y_pred)^2)
+
   R2 <- 1 - SSR/SST
-  
+
   return(R2)
-  
-  
+
+
+}
+
+
+# Functional R2 (scalar: pools across all observations and time points) ---
+
+fR2_function <- function(y_true, y_pred) {
+  SST <- sum(sweep(y_true, 2, colMeans(y_true))^2)
+  SSR <- sum((y_true - y_pred)^2)
+  return(1 - SSR / SST)
 }
 
 
@@ -97,7 +165,8 @@ for(beta.num in num_betas)       {
     all_val_MSEs <- data.frame()
     all_beta_hats <- data.frame()
     all_final_res <- data.frame()
-    all_r2s <- data.frame()
+    all_r2s  <- data.frame()
+    all_fr2s <- data.frame()
     best_lambdas <- data.frame()
     computation_times <- data.frame()  
     
@@ -480,11 +549,21 @@ for(beta.num in num_betas)       {
                          rep_num = rep_num,
                          method = "pFFPLS")
       )
-      
-      
+
+      all_fr2s <- rbind(all_fr2s,
+                        tibble(
+                          fR2_train = fR2_function(Y, y_pred),
+                          fR2_val   = fR2_function(Y_val, y_val_pred),
+                          nComp    = nComp,
+                          beta.num = beta.num,
+                          rep_num  = rep_num,
+                          method   = "pFFPLS")
+      )
+
+
       rm(m_final, y_pred, y_val_pred, beta_df, beta_hat, mean_imse_Y_val) # I'll reuse the same model name
-      
-      
+
+
       ## FFPLS ----
       
       m_final <- ffpls_bs(X = X,
@@ -546,11 +625,21 @@ for(beta.num in num_betas)       {
                          rep_num = rep_num,
                          method = "FFPLS")
       )
-      
-      
+
+      all_fr2s <- rbind(all_fr2s,
+                        tibble(
+                          fR2_train = fR2_function(Y, y_pred),
+                          fR2_val   = fR2_function(Y_val, y_val_pred),
+                          nComp    = nComp,
+                          beta.num = beta.num,
+                          rep_num  = rep_num,
+                          method   = "FFPLS")
+      )
+
+
       rm(m_final, y_pred, y_val_pred, beta_df, beta_hat, mean_imse_Y_val) # I'll reuse the same model name
-      
-      
+
+
       ## FFPLS optimal bases ----
       
       if (do_opt_bases_FFPLS) {
@@ -620,10 +709,20 @@ for(beta.num in num_betas)       {
                            rep_num = rep_num,
                            method = "FFPLS_OB")
         )
-        
-        
+
+        all_fr2s <- rbind(all_fr2s,
+                          tibble(
+                            fR2_train = fR2_function(Y, y_pred),
+                            fR2_val   = fR2_function(Y_val, y_val_pred),
+                            nComp    = nComp,
+                            beta.num = beta.num,
+                            rep_num  = rep_num,
+                            method   = "FFPLS_OB")
+        )
+
+
         rm(m_final, y_pred, y_val_pred, beta_df, beta_hat, mean_imse_Y_val) # I'll reuse the same model name
-        
+
       }
       
       
@@ -680,8 +779,18 @@ for(beta.num in num_betas)       {
                          rep_num = rep_num,
                          method = "pFFR_I")
       )
-      
-      
+
+      all_fr2s <- rbind(all_fr2s,
+                        tibble(
+                          fR2_train = fR2_function(Y, y_pred),
+                          fR2_val   = fR2_function(Y_val, y_val_pred),
+                          nComp    = nComp,
+                          beta.num = beta.num,
+                          rep_num  = rep_num,
+                          method   = "pFFR_I")
+      )
+
+
       rm(y_pred, y_val_pred, beta_df, beta_hat, mean_imse_Y_val) # I'll reuse the same model name
       
       
@@ -746,8 +855,18 @@ for(beta.num in num_betas)       {
                          rep_num = rep_num,
                          method = "pFFR_RS")
       )
-      
-      
+
+      all_fr2s <- rbind(all_fr2s,
+                        tibble(
+                          fR2_train = fR2_function(Y, y_pred),
+                          fR2_val   = fR2_function(Y_val, y_val_pred),
+                          nComp    = nComp,
+                          beta.num = beta.num,
+                          rep_num  = rep_num,
+                          method   = "pFFR_RS")
+      )
+
+
       rm(m_final_rs, y_pred, y_val_pred, beta_df, beta_hat, mean_imse_Y_val) # I'll reuse the same model name
       
       
@@ -807,7 +926,15 @@ for(beta.num in num_betas)       {
                      "_beta_",
                      beta.num,
                      ".Rds"))
-    
+
+    saveRDS(all_fr2s, file =
+              paste0(out_folder,
+                     "fR2s_rep_",
+                     rep_num,
+                     "_beta_",
+                     beta.num,
+                     ".Rds"))
+
     saveRDS(computation_times, file =
               paste0(out_folder,
                      "computation_times_rep_",
