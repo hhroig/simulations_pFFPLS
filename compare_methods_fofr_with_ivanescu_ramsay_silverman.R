@@ -7,18 +7,6 @@ library(plotly)
 library(writexl)
 
 
-beta_num_to_text <- function(beta_num_in) {
-  if (beta_num_in == 1) {
-    beta_txt = "cos_sin"   # separable: cos(p*pi/3)*sin(q*pi/5)
-  } else if (beta_num_in == 2) {
-    beta_txt = "sin_sum"   # diagonal wave: sin(3*pi*(p+q))
-  } else if (beta_num_in == 3) {
-    beta_txt = "cos_sum"   # multi-frequency: sum of cosines along (p+q)
-  }
-
-  return(beta_txt)
-
-}
 
 compare_methods_fun <- function(input_folder, 
                                 zoom_r2_lower = 0, 
@@ -212,7 +200,7 @@ compare_methods_fun <- function(input_folder,
   for (uniq_beta in unique(all_cves$beta.num)) {
     
     list_of_beta_paths[[uniq_beta]] <- paste0(out_folder, "IMSEs_CVEs_", 
-                                              beta_num_to_text(uniq_beta), "/")
+                                              uniq_beta, "/")
     
     
     if (!dir.exists(list_of_beta_paths[[uniq_beta]])) {
@@ -302,28 +290,28 @@ compare_methods_fun <- function(input_folder,
     
     ggsave(p_both,
            filename = paste0(list_of_beta_paths[[beta_num]],
-                             paste0("train_cveY_val_imseY_beta_", beta_num_to_text(beta_num),".png")  ),
+                             paste0("train_cveY_val_imseY_beta_", beta_num,".png")  ),
            width = 16, height = 8 )
     
     if (!is.null(dev.list())) dev.off()
     
     ggsave(p_both,
            filename = paste0(list_of_beta_paths[[beta_num]],
-                             paste0("train_cveY_val_imseY_beta_", beta_num_to_text(beta_num),".pdf")  ),
+                             paste0("train_cveY_val_imseY_beta_", beta_num,".pdf")  ),
            width = 16, height = 8 )
     
     if (!is.null(dev.list())) dev.off()
     
     ggsave(p_imse,
            filename = paste0(list_of_beta_paths[[beta_num]],
-                             paste0("imse_beta_", beta_num_to_text(beta_num),".png")  ),
+                             paste0("imse_beta_", beta_num,".png")  ),
            width = 12, height = 8 )
     
     if (!is.null(dev.list())) dev.off()
     
     ggsave(p_imse,
            filename = paste0(list_of_beta_paths[[beta_num]],
-                             paste0("imse_beta_", beta_num_to_text(beta_num),".pdf")  ),
+                             paste0("imse_beta_", beta_num,".pdf")  ),
            width = 12, height = 8 )
     
     
@@ -370,7 +358,7 @@ compare_methods_fun <- function(input_folder,
     
     ggsave(p_both_log,
            filename = paste0(list_of_beta_paths[[beta_num]],
-                             paste0("train_cveY_val_imseY_log_beta_", beta_num_to_text(beta_num),
+                             paste0("train_cveY_val_imseY_log_beta_", beta_num,
                                     ".pdf")  ),
            width = 16, height = 8 )
     
@@ -378,7 +366,7 @@ compare_methods_fun <- function(input_folder,
     
     ggsave(p_both_log,
            filename = paste0(list_of_beta_paths[[beta_num]],
-                             paste0("train_cveY_val_imseY_log_beta_", beta_num_to_text(beta_num),
+                             paste0("train_cveY_val_imseY_log_beta_", beta_num,
                                     ".png")  ),
            width = 16, height = 8 )
     
@@ -387,7 +375,7 @@ compare_methods_fun <- function(input_folder,
     
     ggsave(p_imse_log,
            filename = paste0(list_of_beta_paths[[beta_num]],
-                             paste0("log_imse_beta_", beta_num_to_text(beta_num),
+                             paste0("log_imse_beta_", beta_num,
                                     ".pdf")  ),
            width = 12, height = 6 )
     
@@ -395,7 +383,7 @@ compare_methods_fun <- function(input_folder,
     
     ggsave(p_imse_log,
            filename = paste0(list_of_beta_paths[[beta_num]],
-                             paste0("log_imse_beta_", beta_num_to_text(beta_num),
+                             paste0("log_imse_beta_", beta_num,
                                     ".png")  ),
            width = 12, height = 6 )
     
@@ -426,7 +414,7 @@ compare_methods_fun <- function(input_folder,
     
     ggsave(p_cve,
            filename = paste0(list_of_beta_paths[[beta_num]],
-                             paste0("train_PLS_cveY_", beta_num_to_text(beta_num),".png")  ),
+                             paste0("train_PLS_cveY_", beta_num,".png")  ),
            width = 8, height = 6 )
     
     if (!is.null(dev.list())) dev.off()
@@ -434,7 +422,7 @@ compare_methods_fun <- function(input_folder,
     
     ggsave(p_cve,
            filename = paste0(list_of_beta_paths[[beta_num]],
-                             paste0("train_PLS_cveY_", beta_num_to_text(beta_num),".pdf")  ),
+                             paste0("train_PLS_cveY_", beta_num,".pdf")  ),
            width = 8, height =6 )
     
     
@@ -456,7 +444,7 @@ compare_methods_fun <- function(input_folder,
     
     ggsave(p_imse_val,
            filename = paste0(list_of_beta_paths[[beta_num]],
-                             paste0("test_PLS_imseY_", beta_num_to_text(beta_num),".png")  ),
+                             paste0("test_PLS_imseY_", beta_num,".png")  ),
            width = 8, height = 6 )
     
     if (!is.null(dev.list())) dev.off()
@@ -464,7 +452,7 @@ compare_methods_fun <- function(input_folder,
     
     ggsave(p_imse_val,
            filename = paste0(list_of_beta_paths[[beta_num]],
-                             paste0("test_PLS_imseY_", beta_num_to_text(beta_num),".pdf")  ),
+                             paste0("test_PLS_imseY_", beta_num,".pdf")  ),
            width = 8, height = 6 )
     
     
@@ -491,7 +479,7 @@ compare_methods_fun <- function(input_folder,
       ggsave(p_imse,
              filename = paste0(list_of_beta_paths[[beta_num]],
                                paste0("imse_beta_", 
-                                      beta_num_to_text(beta_num), 
+                                      beta_num, 
                                       "_ncomp", 
                                       opt_comp,
                                       ".png")  ),
@@ -503,7 +491,7 @@ compare_methods_fun <- function(input_folder,
       ggsave(p_imse,
              filename = paste0(list_of_beta_paths[[beta_num]],
                                paste0("imse_beta_", 
-                                      beta_num_to_text(beta_num), 
+                                      beta_num, 
                                       "_ncomp", 
                                       opt_comp,
                                       ".pdf")   ),
@@ -530,7 +518,7 @@ compare_methods_fun <- function(input_folder,
       ggsave(p_imse_val,
              filename = paste0(list_of_beta_paths[[beta_num]],
                                paste0("test_imseY_", 
-                                      beta_num_to_text(beta_num), 
+                                      beta_num, 
                                       "_ncomp", 
                                       opt_comp,
                                       ".png")  ),
@@ -542,7 +530,7 @@ compare_methods_fun <- function(input_folder,
       ggsave(p_imse_val,
              filename = paste0(list_of_beta_paths[[beta_num]],
                                paste0("test_imseY_", 
-                                      beta_num_to_text(beta_num), 
+                                      beta_num, 
                                       "_ncomp", 
                                       opt_comp,
                                       ".pdf")   ),
@@ -579,7 +567,7 @@ compare_methods_fun <- function(input_folder,
     
     ggsave(p_cve_log,
            filename = paste0(list_of_beta_paths[[beta_num]],
-                             paste0("train_log_cveY_", beta_num_to_text(beta_num),".png")  ),
+                             paste0("train_log_cveY_", beta_num,".png")  ),
            width = 8, height = 6 )
     
     
@@ -587,7 +575,7 @@ compare_methods_fun <- function(input_folder,
     
     ggsave(p_cve_log,
            filename = paste0(list_of_beta_paths[[beta_num]],
-                             paste0("train_log_cveY_", beta_num_to_text(beta_num),".pdf")  ),
+                             paste0("train_log_cveY_", beta_num,".pdf")  ),
            width = 8, height = 6 )
     
     
@@ -614,7 +602,7 @@ compare_methods_fun <- function(input_folder,
       ggsave(p_imse_log,
              filename = paste0(list_of_beta_paths[[beta_num]],
                                paste0("log_imse_beta_", 
-                                      beta_num_to_text(beta_num), 
+                                      beta_num, 
                                       "_ncomp", 
                                       opt_comp,
                                       ".png")  ),
@@ -626,7 +614,7 @@ compare_methods_fun <- function(input_folder,
       ggsave(p_imse_log,
              filename = paste0(list_of_beta_paths[[beta_num]],
                                paste0("log_imse_beta_", 
-                                      beta_num_to_text(beta_num), 
+                                      beta_num, 
                                       "_ncomp", 
                                       opt_comp,
                                       ".pdf")   ),
@@ -654,7 +642,7 @@ compare_methods_fun <- function(input_folder,
       ggsave(p_imse_val_log,
              filename = paste0(list_of_beta_paths[[beta_num]],
                                paste0("log_test_imseY_", 
-                                      beta_num_to_text(beta_num), 
+                                      beta_num, 
                                       "_ncomp", 
                                       opt_comp,
                                       ".png")  ),
@@ -666,7 +654,7 @@ compare_methods_fun <- function(input_folder,
       ggsave(p_imse_val_log,
              filename = paste0(list_of_beta_paths[[beta_num]],
                                paste0("log_test_imseY_", 
-                                      beta_num_to_text(beta_num), 
+                                      beta_num, 
                                       "_ncomp", 
                                       opt_comp,
                                       ".pdf")   ),
@@ -854,14 +842,14 @@ compare_methods_fun <- function(input_folder,
       
       ggsave(p_r2_both,
              filename = paste0(out_folder_R2,
-                               paste0("R2_beta_", beta_num_to_text(beta_num), "_nComp", n_comps_loop,".png")  ),
+                               paste0("R2_beta_", beta_num, "_nComp", n_comps_loop,".png")  ),
              width = 12, height = 6 )
       
       if (!is.null(dev.list())) dev.off()
       
       ggsave(p_r2_both,
              filename = paste0(out_folder_R2,
-                               paste0("R2_beta_", beta_num_to_text(beta_num), "_nComp", n_comps_loop,".pdf")  ),
+                               paste0("R2_beta_", beta_num, "_nComp", n_comps_loop,".pdf")  ),
              width = 12, height = 6 )
       
       # Limit lower ylim for more details:
@@ -883,14 +871,14 @@ compare_methods_fun <- function(input_folder,
       
       ggsave(p_r2_both_zoom,
              filename = paste0(out_folder_R2,
-                               paste0("R2_zoom_beta_", beta_num_to_text(beta_num), "_nComp", n_comps_loop,".png")  ),
+                               paste0("R2_zoom_beta_", beta_num, "_nComp", n_comps_loop,".png")  ),
              width = 12, height = 6 )
       
       if (!is.null(dev.list())) dev.off()
       
       ggsave(p_r2_both_zoom,
              filename = paste0(out_folder_R2,
-                               paste0("R2_zoom_beta_", beta_num_to_text(beta_num), "_nComp", n_comps_loop,".pdf")  ),
+                               paste0("R2_zoom_beta_", beta_num, "_nComp", n_comps_loop,".pdf")  ),
              width = 12, height = 6 )
       
       
@@ -914,14 +902,14 @@ compare_methods_fun <- function(input_folder,
         
         ggsave(p_r2_both_rough,
                filename = paste0(out_folder_R2,
-                                 paste0("R2_rough_beta_", beta_num_to_text(beta_num), "_nComp", n_comps_loop,".png")  ),
+                                 paste0("R2_rough_beta_", beta_num, "_nComp", n_comps_loop,".png")  ),
                width = 12, height = 6 )
         
         if (!is.null(dev.list())) dev.off()
         
         ggsave(p_r2_both_rough,
                filename = paste0(out_folder_R2,
-                                 paste0("R2_rough_beta_", beta_num_to_text(beta_num), "_nComp", n_comps_loop,".pdf")  ),
+                                 paste0("R2_rough_beta_", beta_num, "_nComp", n_comps_loop,".pdf")  ),
                width = 12, height = 6 )
         
         p_r2_both_rough_zoom <- ggplot(summ_all_r2_long %>% filter(beta.num == beta_num, nComp == n_comps_loop),
@@ -941,14 +929,14 @@ compare_methods_fun <- function(input_folder,
         
         ggsave(p_r2_both_rough_zoom,
                filename = paste0(out_folder_R2,
-                                 paste0("R2_rough_zoom_beta_", beta_num_to_text(beta_num), "_nComp", n_comps_loop,".png")  ),
+                                 paste0("R2_rough_zoom_beta_", beta_num, "_nComp", n_comps_loop,".png")  ),
                width = 12, height = 6 )
         
         if (!is.null(dev.list())) dev.off()
         
         ggsave(p_r2_both_rough_zoom,
                filename = paste0(out_folder_R2,
-                                 paste0("R2_rough_zoom_beta_", beta_num_to_text(beta_num), "_nComp", n_comps_loop,".pdf")  ),
+                                 paste0("R2_rough_zoom_beta_", beta_num, "_nComp", n_comps_loop,".pdf")  ),
                width = 12, height = 6 )
         
       } # if do_rough_r2
@@ -989,7 +977,7 @@ compare_methods_fun <- function(input_folder,
         ggsave(p_r2_partition,
                filename = paste0(out_folder_R2,
                                  paste0("R2_", partition_out, 
-                                        "_beta_", beta_num_to_text(beta_num), 
+                                        "_beta_", beta_num, 
                                         "_nComp", n_comps_loop,".png")  ),
                width = 8, height = 6 )
         
@@ -998,7 +986,7 @@ compare_methods_fun <- function(input_folder,
         ggsave(p_r2_partition,
                filename = paste0(out_folder_R2,
                                  paste0("R2_", partition_out, 
-                                        "_beta_", beta_num_to_text(beta_num),
+                                        "_beta_", beta_num,
                                         "_nComp", n_comps_loop,".pdf")  ),
                width = 8, height = 6 )
         
@@ -1024,7 +1012,7 @@ compare_methods_fun <- function(input_folder,
         ggsave(p_r2_partition_zoom,
                filename = paste0(out_folder_R2,
                                  paste0("R2_zoom_", partition_out, 
-                                        "_beta_", beta_num_to_text(beta_num), "_nComp", n_comps_loop,".png")  ),
+                                        "_beta_", beta_num, "_nComp", n_comps_loop,".png")  ),
                width = 8, height = 6 )
         
         if (!is.null(dev.list())) dev.off()
@@ -1032,7 +1020,7 @@ compare_methods_fun <- function(input_folder,
         ggsave(p_r2_partition_zoom,
                filename = paste0(out_folder_R2,
                                  paste0("R2_zoom_", partition_out, 
-                                        "_beta_", beta_num_to_text(beta_num), "_nComp", n_comps_loop,".pdf")  ),
+                                        "_beta_", beta_num, "_nComp", n_comps_loop,".pdf")  ),
                width = 8, height = 6 )
         
         
@@ -1060,7 +1048,7 @@ compare_methods_fun <- function(input_folder,
           ggsave(p_r2_both_rough,
                  filename = paste0(out_folder_R2,
                                    paste0("R2_rough_", partition_out, 
-                                          "_beta_", beta_num_to_text(beta_num), "_nComp", n_comps_loop,".png")  ),
+                                          "_beta_", beta_num, "_nComp", n_comps_loop,".png")  ),
                  width = 8, height = 6 )
           
           if (!is.null(dev.list())) dev.off()
@@ -1068,7 +1056,7 @@ compare_methods_fun <- function(input_folder,
           ggsave(p_r2_both_rough,
                  filename = paste0(out_folder_R2,
                                    paste0("R2_rough_", partition_out, 
-                                          "_beta_", beta_num_to_text(beta_num), "_nComp", n_comps_loop,".pdf")  ),
+                                          "_beta_", beta_num, "_nComp", n_comps_loop,".pdf")  ),
                  width = 8, height = 6 )
           
           p_r2_both_rough_zoom <- ggplot(summ_all_r2_long %>% 
@@ -1091,7 +1079,7 @@ compare_methods_fun <- function(input_folder,
           ggsave(p_r2_both_rough_zoom,
                  filename = paste0(out_folder_R2,
                                    paste0("R2_rough_", partition_out, 
-                                          "_zoom_beta_", beta_num_to_text(beta_num), "_nComp", n_comps_loop,".png")  ),
+                                          "_zoom_beta_", beta_num, "_nComp", n_comps_loop,".png")  ),
                  width = 8, height = 6 )
           
           if (!is.null(dev.list())) dev.off()
@@ -1099,7 +1087,7 @@ compare_methods_fun <- function(input_folder,
           ggsave(p_r2_both_rough_zoom,
                  filename = paste0(out_folder_R2,
                                    paste0("R2_rough_", partition_out, 
-                                          "_zoom_beta_", beta_num_to_text(beta_num), "_nComp", n_comps_loop,".pdf")  ),
+                                          "_zoom_beta_", beta_num, "_nComp", n_comps_loop,".pdf")  ),
                  width = 8, height = 6 )
           
         } # if do_rough_r2
@@ -1162,14 +1150,14 @@ compare_methods_fun <- function(input_folder,
 
     ggsave(p_fr2_both,
            filename = paste0(out_folder_fR2,
-                             paste0("fR2_beta_", beta_num_to_text(beta_num), ".png")),
+                             paste0("fR2_beta_", beta_num, ".png")),
            width = 16, height = 8)
 
     if (!is.null(dev.list())) dev.off()
 
     ggsave(p_fr2_both,
            filename = paste0(out_folder_fR2,
-                             paste0("fR2_beta_", beta_num_to_text(beta_num), ".pdf")),
+                             paste0("fR2_beta_", beta_num, ".pdf")),
            width = 16, height = 8)
 
     if (!is.null(dev.list())) dev.off()
@@ -1190,14 +1178,14 @@ compare_methods_fun <- function(input_folder,
 
     ggsave(p_fr2_train,
            filename = paste0(out_folder_fR2,
-                             paste0("fR2_train_beta_", beta_num_to_text(beta_num), ".png")),
+                             paste0("fR2_train_beta_", beta_num, ".png")),
            width = 12, height = 8)
 
     if (!is.null(dev.list())) dev.off()
 
     ggsave(p_fr2_train,
            filename = paste0(out_folder_fR2,
-                             paste0("fR2_train_beta_", beta_num_to_text(beta_num), ".pdf")),
+                             paste0("fR2_train_beta_", beta_num, ".pdf")),
            width = 12, height = 8)
 
     if (!is.null(dev.list())) dev.off()
@@ -1218,14 +1206,14 @@ compare_methods_fun <- function(input_folder,
 
     ggsave(p_fr2_val,
            filename = paste0(out_folder_fR2,
-                             paste0("fR2_test_beta_", beta_num_to_text(beta_num), ".png")),
+                             paste0("fR2_test_beta_", beta_num, ".png")),
            width = 12, height = 8)
 
     if (!is.null(dev.list())) dev.off()
 
     ggsave(p_fr2_val,
            filename = paste0(out_folder_fR2,
-                             paste0("fR2_test_beta_", beta_num_to_text(beta_num), ".pdf")),
+                             paste0("fR2_test_beta_", beta_num, ".pdf")),
            width = 12, height = 8)
 
     if (!is.null(dev.list())) dev.off()
@@ -1248,7 +1236,7 @@ compare_methods_fun <- function(input_folder,
 
       ggsave(p_fr2_nc_train,
              filename = paste0(out_folder_fR2,
-                               paste0("fR2_train_", beta_num_to_text(beta_num),
+                               paste0("fR2_train_", beta_num,
                                       "_ncomp", opt_comp, ".png")),
              width = 8, height = 6)
 
@@ -1256,7 +1244,7 @@ compare_methods_fun <- function(input_folder,
 
       ggsave(p_fr2_nc_train,
              filename = paste0(out_folder_fR2,
-                               paste0("fR2_train_", beta_num_to_text(beta_num),
+                               paste0("fR2_train_", beta_num,
                                       "_ncomp", opt_comp, ".pdf")),
              width = 8, height = 6)
 
@@ -1277,7 +1265,7 @@ compare_methods_fun <- function(input_folder,
 
       ggsave(p_fr2_nc_val,
              filename = paste0(out_folder_fR2,
-                               paste0("fR2_test_", beta_num_to_text(beta_num),
+                               paste0("fR2_test_", beta_num,
                                       "_ncomp", opt_comp, ".png")),
              width = 8, height = 6)
 
@@ -1285,7 +1273,7 @@ compare_methods_fun <- function(input_folder,
 
       ggsave(p_fr2_nc_val,
              filename = paste0(out_folder_fR2,
-                               paste0("fR2_test_", beta_num_to_text(beta_num),
+                               paste0("fR2_test_", beta_num,
                                       "_ncomp", opt_comp, ".pdf")),
              width = 8, height = 6)
 
@@ -1371,7 +1359,7 @@ compare_methods_fun <- function(input_folder,
     
     for (n.Beta in unique(summ_all_betas$beta.num)) {
       
-      out_folder_mean_betas <- paste0(out_folder, "mean_beta_", beta_num_to_text(n.Beta), "/")
+      out_folder_mean_betas <- paste0(out_folder, "mean_beta_", n.Beta, "/")
       
       if (!dir.exists(out_folder_mean_betas)) {
         dir.create(out_folder_mean_betas)
@@ -1534,9 +1522,9 @@ compare_methods_fun <- function(input_folder,
         unique()
       
       # File paths for saving
-      pdf_file <- paste0(path, unique_method, "_beta", beta_num_to_text(beta_num), "_ncomp", n.Comp, ".pdf")
-      eps_file <- paste0(path, unique_method, "_beta", beta_num_to_text(beta_num), "_ncomp", n.Comp, ".eps")
-      png_file <- paste0(path, unique_method, "_beta", beta_num_to_text(beta_num), "_ncomp", n.Comp, ".png")
+      pdf_file <- paste0(path, unique_method, "_beta", beta_num, "_ncomp", n.Comp, ".pdf")
+      eps_file <- paste0(path, unique_method, "_beta", beta_num, "_ncomp", n.Comp, ".eps")
+      png_file <- paste0(path, unique_method, "_beta", beta_num, "_ncomp", n.Comp, ".png")
       
       # Save as PDF
       pdf(pdf_file, width = 7, height = 5)
@@ -1594,9 +1582,9 @@ compare_methods_fun <- function(input_folder,
     
     # Now the true beta
     
-    pdf_file <- paste0(path, "True_beta", beta_num_to_text(beta_num), "_ncomp", n.Comp, ".pdf")
-    eps_file <- paste0(path, "True_beta", beta_num_to_text(beta_num), "_ncomp", n.Comp, ".eps")
-    png_file <- paste0(path, "True_beta", beta_num_to_text(beta_num), "_ncomp", n.Comp, ".png")
+    pdf_file <- paste0(path, "True_beta", beta_num, "_ncomp", n.Comp, ".pdf")
+    eps_file <- paste0(path, "True_beta", beta_num, "_ncomp", n.Comp, ".eps")
+    png_file <- paste0(path, "True_beta", beta_num, "_ncomp", n.Comp, ".png")
     
     # Save as PDF
     pdf(pdf_file, width = 7, height = 5)
@@ -1658,7 +1646,7 @@ compare_methods_fun <- function(input_folder,
   for (n.Comp in unique(summ_all_betas$nComp)) {
     for (n.Beta in unique(summ_all_betas$beta.num)) {
       
-      out_folder_mean_betas2 <- paste0(out_folder, "3DBeta2D_", beta_num_to_text(n.Beta), "/")
+      out_folder_mean_betas2 <- paste0(out_folder, "3DBeta2D_", n.Beta, "/")
       
       if (!dir.exists(out_folder_mean_betas2)) {
         dir.create(out_folder_mean_betas2)

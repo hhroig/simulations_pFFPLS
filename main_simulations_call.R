@@ -18,7 +18,7 @@ main_simulations_call <- function(
   
   center = TRUE, 
   
-  num_betas = c(1, 3),  # betas ids
+  num_betas = c("cos_sin", "cos_sum"),  # betas ids
   
   num_lambdas = 10, # number of lambdas to be used in the grid search (for all)
   
@@ -163,7 +163,7 @@ main_simulations_call <- function(
 global_num_lambdas = 3
 global_total_reps = 3
 global_start_reps = 1
-global_betas = 1:3
+global_betas = c("cos_sin", "sin_sum", "cos_sum")
 
 
 # Setting 1:

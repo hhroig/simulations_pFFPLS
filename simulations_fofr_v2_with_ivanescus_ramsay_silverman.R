@@ -25,11 +25,11 @@ generate_fofr_data <- function(nbasisX = 7, nbasisY = 5, nbeta = 1,
   p <- seq(0, TX, length.out = nnodesX)
   q <- seq(0, TY, length.out = nnodesY)
 
-  if (nbeta == 1) {
+  if (nbeta == "cos_sin") {
     f <- function(q, p) cos(2 * pi * p) * sin(2 * pi * q)
-  } else if (nbeta == 2) {
+  } else if (nbeta == "sin_sum") {
     f <- function(q, p) sin(3 * pi * (p + q))
-  } else if (nbeta == 3) {
+  } else if (nbeta == "cos_sum") {
     f <- function(q, p) {
       0.5 * cos(0.5 * pi * (p + q)) +
         cos(1.5 * pi * (p + q)) +
@@ -76,13 +76,13 @@ generate_fofr_data <- function(nbasisX = 7, nbasisY = 5, nbeta = 1,
 
 redo_beta_true <- function(q, p, nbeta) {
 
-  if (nbeta == 1) {
+  if (nbeta == "cos_sin") {
     f <- function(q, p) cos(2 * pi * p) * sin(2 * pi * q)
   }
-  else if (nbeta == 2) {
+  else if (nbeta == "sin_sum") {
     f <- function(q, p) sin(3 * pi * (p + q))
   }
-  else if (nbeta == 3) {
+  else if (nbeta == "cos_sum") {
     f <- function(q, p) {
       0.5 * cos(0.5 * pi * (p + q)) +
         cos(1.5 * pi * (p + q)) +
