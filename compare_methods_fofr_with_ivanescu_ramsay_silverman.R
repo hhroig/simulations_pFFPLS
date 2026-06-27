@@ -112,7 +112,7 @@ compare_methods_fun <- function(input_folder,
 
   all_best_r2 <- data.frame()
 
-  all_best_r2_files <- list.files(path = input_folder, pattern = "R2s_rep")
+  all_best_r2_files <- list.files(path = input_folder, pattern = "^R2s_rep")
 
   for (ind_file in all_best_r2_files) {
 
