@@ -159,8 +159,8 @@ main_simulations_call <- function(
 # Run the simulations -----------------------------------------------------
 
 
-global_num_lambdas = 3
-global_total_reps = 3
+global_num_lambdas = 10
+global_total_reps = 30
 global_start_reps = 1
 global_betas = c("cos_sin", "sin_sum", "cos_sum")
 
