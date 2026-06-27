@@ -68,23 +68,12 @@ main_simulations_call <- function(
     # number of PLS components to compute:
     max_nComp <- 6
   }
-  
+   
   
   # # Setting 2: 
-  if (do_setting == 2) {
-    LL <- 40 # number of basis for Y(q)
-    KK <- 40 # number of basis for X(p)
-    do_opt_bases_FFPLS = FALSE
-    
-    # number of PLS components to compute:
-    max_nComp <- 8
-  }
-  
-  
-  # # Setting 3: 
   # # select number of basis using CVE for non-penalized method
   # # use the following for the penalized approach:
-  if (do_setting == 3) {
+  if (do_setting == 2) {
     LL <- 40 # number of basis for Y(q)
     KK <- 40 # number of basis for X(p)
     
@@ -94,6 +83,16 @@ main_simulations_call <- function(
     LL_list <- round(seq(9, 40, length.out = num_lambdas)) # list of number of bases for Y(q)
     KK_list <- LL_list                                     # list of number of bases for X(p)
     do_opt_bases_FFPLS = TRUE
+  }  
+  
+  # # Setting 3: 
+  if (do_setting == 3) {
+    LL <- 40 # number of basis for Y(q)
+    KK <- 40 # number of basis for X(p)
+    do_opt_bases_FFPLS = FALSE
+    
+    # number of PLS components to compute:
+    max_nComp <- 8
   }
   
   
@@ -190,35 +189,9 @@ main_simulations_call(
 )
 
 
-# 
-# # Setting 2:
-# main_simulations_call(
-#   do_setting = 2, 
-#   X_sd_error = 0, 
-#   
-#   num_betas = global_betas,  # betas ids
-#   
-#   num_lambdas = global_num_lambdas, 
-#   total_reps  = global_total_reps,
-#   rep_starts = global_start_reps
-# )
-# 
-# main_simulations_call(
-#   do_setting = 2, 
-#   X_sd_error = 0.2, 
-#   
-#   num_betas = global_betas,  # betas ids
-#   
-#   num_lambdas = global_num_lambdas, 
-#   total_reps  = global_total_reps,
-#   rep_starts = global_start_reps
-# )
-
-
-
-# Setting 3:
+# Setting 2:
 main_simulations_call(
-  do_setting = 3, 
+  do_setting = 2, 
   X_sd_error = 0, 
   
   num_betas = global_betas,  # betas ids
@@ -229,7 +202,7 @@ main_simulations_call(
 )
 
 main_simulations_call(
-  do_setting = 3, 
+  do_setting = 2, 
   X_sd_error = 0.2, 
   
   num_betas = global_betas,  # betas ids
@@ -238,3 +211,27 @@ main_simulations_call(
   total_reps  = global_total_reps,
   rep_starts = global_start_reps
 )
+
+# 
+# # Setting 3:
+# main_simulations_call(
+#   do_setting = 3, 
+#   X_sd_error = 0, 
+#   
+#   num_betas = global_betas,  # betas ids
+#   
+#   num_lambdas = global_num_lambdas, 
+#   total_reps  = global_total_reps,
+#   rep_starts = global_start_reps
+# )
+# 
+# main_simulations_call(
+#   do_setting = 3, 
+#   X_sd_error = 0.2, 
+#   
+#   num_betas = global_betas,  # betas ids
+#   
+#   num_lambdas = global_num_lambdas, 
+#   total_reps  = global_total_reps,
+#   rep_starts = global_start_reps
+# )
