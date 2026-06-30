@@ -164,29 +164,29 @@ global_total_reps = 30
 global_start_reps = 1
 global_betas = c("cos_sin", "sin_sum", "cos_sum")
 
-
-# Setting 1:
-main_simulations_call(
-  do_setting = 1, 
-  X_sd_error = 0, 
-  
-  num_betas = global_betas,  # betas ids
-  
-  num_lambdas = global_num_lambdas, 
-  total_reps  = global_total_reps,
-  rep_starts = global_start_reps
-)
-
-main_simulations_call(
-  do_setting = 1, 
-  X_sd_error = 0.2, 
-  
-  num_betas = global_betas,  # betas ids
-  
-  num_lambdas = global_num_lambdas, 
-  total_reps  = global_total_reps,
-  rep_starts = global_start_reps
-)
+# 
+# # Setting 1:
+# main_simulations_call(
+#   do_setting = 1, 
+#   X_sd_error = 0, 
+#   
+#   num_betas = global_betas,  # betas ids
+#   
+#   num_lambdas = global_num_lambdas, 
+#   total_reps  = global_total_reps,
+#   rep_starts = global_start_reps
+# )
+# 
+# main_simulations_call(
+#   do_setting = 1, 
+#   X_sd_error = 0.2, 
+#   
+#   num_betas = global_betas,  # betas ids
+#   
+#   num_lambdas = global_num_lambdas, 
+#   total_reps  = global_total_reps,
+#   rep_starts = global_start_reps
+# )
 
 
 # Setting 2:
@@ -196,7 +196,7 @@ main_simulations_call(
   
   num_betas = global_betas,  # betas ids
   
-  num_lambdas = global_num_lambdas, 
+  num_lambdas = global_num_lambdas,
   total_reps  = global_total_reps,
   rep_starts = global_start_reps
 )

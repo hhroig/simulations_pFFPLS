@@ -1449,26 +1449,39 @@ compare_methods_fun <- function(input_folder,
       filter(beta.num == beta_num) %>% 
       .[["z"]]
     
-    x_true <-  df_true_betas %>% 
-      filter(method == "True Beta") %>% 
-      filter(beta.num == beta_num) %>% 
-      .[["p"]] %>% 
-      unique()
-    
-    y_true <- df_true_betas %>% 
-      filter(method == "True Beta") %>% 
-      filter(beta.num == beta_num) %>% 
-      .[["q"]] %>% 
-      unique()
-    
-    z_true <- beta_true %>% matrix( nrow = length(x_true), ncol = length(y_true) )
-    
+    x_true <- df_true_betas %>%
+      filter(method == "True Beta") %>%
+      filter(beta.num == beta_num) %>%
+      .[["p"]] %>%
+      unique() %>% sort()
+
+    y_true <- df_true_betas %>%
+      filter(method == "True Beta") %>%
+      filter(beta.num == beta_num) %>%
+      .[["q"]] %>%
+      unique() %>% sort()
+
+    z_true <- df_true_betas %>%
+      filter(method == "True Beta", beta.num == beta_num) %>%
+      arrange(p, q) %>%
+      .[["z"]] %>%
+      matrix(nrow = length(x_true), ncol = length(y_true))
+
+    # Skip this beta/nComp combination if the true-beta grid is degenerate
+    # (e.g. missing data for this beta_num) instead of crashing persp():
+    if (length(x_true) < 2 || length(y_true) < 2) {
+      warning(paste0("Skipping 3D plot for beta_num = ", beta_num,
+                      ", nComp = ", n.Comp,
+                      ": true-beta grid has fewer than 2 unique p or q values."))
+      return(invisible(NULL))
+    }
+
     # Get plot limits out of estimations:
     betas_limits <- summ_all_betas %>%
       filter(beta.num == beta_num) %>%
       ungroup() %>%
       dplyr::select(mean_z) %>%
-      range()
+      range(na.rm = TRUE)
     
     # Restrict to the actual beta we're studying:
     plot_data <- summ_all_betas %>%
@@ -1484,43 +1497,52 @@ compare_methods_fun <- function(input_folder,
         filter(method == unique_method)
       
       # Get the x and y values out of each estimation
-      x <- plot_data_unique_method %>% 
-        .[["p"]] %>% 
-        unique()
-      
-      y <- plot_data_unique_method %>% 
-        .[["q"]] %>% 
-        unique()
-      
-      # Vectorized:
-      estimated_betas[[unique_method]] <- plot_data_unique_method %>% 
+      x <- plot_data_unique_method %>%
+        .[["p"]] %>%
+        unique() %>% sort()
+
+      y <- plot_data_unique_method %>%
+        .[["q"]] %>%
+        unique() %>% sort()
+
+      # Vectorized (sorted to match the sorted x/y grid):
+      estimated_betas[[unique_method]] <- plot_data_unique_method %>%
+        arrange(p, q) %>%
         .[["mean_z"]]
-      
+
       # Matrix form:
-      estimated_betas_matrix[[unique_method]] <- matrix( 
-        estimated_betas[[unique_method]],  
-        nrow = length(x), 
+      estimated_betas_matrix[[unique_method]] <- matrix(
+        estimated_betas[[unique_method]],
+        nrow = length(x),
         ncol = length(y) )
       
     }
     
     # Get the range of the estimated betas, including truth:
-    zs_scale <- range(betas_limits, beta_true)
+    zs_scale <- range(betas_limits, beta_true, na.rm = TRUE)
     
     
     # Iterate over each unique method:
     for (unique_method in names(estimated_betas_matrix)) {
       
-      x <- plot_data %>% 
-        filter(method == unique_method) %>% 
-        .[["p"]] %>% 
-        unique()
-      
-      y <- plot_data %>% 
-        filter(method == unique_method) %>% 
-        .[["q"]] %>% 
-        unique()
-      
+      x <- plot_data %>%
+        filter(method == unique_method) %>%
+        .[["p"]] %>%
+        unique() %>% sort()
+
+      y <- plot_data %>%
+        filter(method == unique_method) %>%
+        .[["q"]] %>%
+        unique() %>% sort()
+
+      # Skip this method if its grid is degenerate instead of crashing persp():
+      if (length(x) < 2 || length(y) < 2) {
+        warning(paste0("Skipping 3D plot for method = ", unique_method,
+                        ", beta_num = ", beta_num, ", nComp = ", n.Comp,
+                        ": grid has fewer than 2 unique p or q values."))
+        next
+      }
+
       # File paths for saving
       pdf_file <- paste0(path, unique_method, "_beta", beta_num, "_ncomp", n.Comp, ".pdf")
       eps_file <- paste0(path, unique_method, "_beta", beta_num, "_ncomp", n.Comp, ".eps")
