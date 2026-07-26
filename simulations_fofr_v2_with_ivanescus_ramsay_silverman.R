@@ -3,11 +3,16 @@
 ## Adapt the same method we have for cv_unique_fof_par to this case...
 
 
-# Local override of generate_fofr_data with the three new beta functions --
+# Local override of generate_fofr_data with the new beta functions --
+# See docs/new_betas.md for beta1-beta3 and docs/new_setting_smooth_X_beta4.md
+# for the X_process argument and the sin_sum_cos_diff beta.
 
 generate_fofr_data <- function(nbasisX = 7, nbasisY = 5, nbeta = 1,
                                nnodesX = 99, nnodesY = 98,
-                               Rsq = 0.9, n = 100, n_validation = 50) {
+                               Rsq = 0.9, n = 100, n_validation = 50,
+                               X_process = c("uniform_bspline", "fourier_decay")) {
+
+  X_process <- match.arg(X_process)
 
   K  <- nbasisX
   L  <- nbasisY
@@ -19,8 +24,36 @@ generate_fofr_data <- function(nbasisX = 7, nbasisY = 5, nbeta = 1,
 
   n <- n + n_validation
 
-  alpha <- matrix(stats::runif(n * K, -1, 1), nrow = n)
-  X     <- fda::fd(t(alpha), phiX)
+  if (X_process == "uniform_bspline") {
+
+    alpha <- matrix(stats::runif(n * K, -1, 1), nrow = n)
+    X     <- fda::fd(t(alpha), phiX)
+
+  } else if (X_process == "fourier_decay") {
+
+    # Smooth, low-rank predictor process (see docs/new_setting_smooth_X_beta4.md):
+    # x_i(p) = sum_{r=1}^{R} v_{i,r1} sin(r*pi*p) + v_{i,r2} cos(r*pi*p),
+    # v_{i,r1}, v_{i,r2} ~ N(0, 1/r^4) iid, giving a geometrically decaying
+    # spectrum (effectively low-rank), unlike the flat spectrum of the
+    # uniform_bspline process above.
+    R <- 10
+    K_four <- 2 * R + 1  # const + R sin/cos pairs
+
+    basisX_fourier <- fda::create.fourier.basis(rangeval = c(0, TX),
+                                                nbasis = K_four,
+                                                period  = 2 * TX)
+
+    sd_r <- 1 / (1:R)^2  # Var = 1/r^4  =>  sd = 1/r^2
+    v1 <- sapply(sd_r, function(s) stats::rnorm(n, mean = 0, sd = s))  # n x R (sin coefs)
+    v2 <- sapply(sd_r, function(s) stats::rnorm(n, mean = 0, sd = s))  # n x R (cos coefs)
+
+    coefs <- matrix(0, nrow = K_four, ncol = n)
+    coefs[seq(2, K_four - 1, by = 2), ] <- t(v1)  # rows 2,4,6,... -> sin1, sin2, ...
+    coefs[seq(3, K_four,     by = 2), ] <- t(v2)  # rows 3,5,7,... -> cos1, cos2, ...
+    # row 1 (constant) left at 0 -> zero-mean process
+
+    X <- fda::fd(coefs, basisX_fourier)
+  }
 
   p <- seq(0, TX, length.out = nnodesX)
   q <- seq(0, TY, length.out = nnodesY)
@@ -35,6 +68,8 @@ generate_fofr_data <- function(nbasisX = 7, nbasisY = 5, nbeta = 1,
         cos(1.5 * pi * (p + q)) +
         2   * cos(2.5 * pi * (p + q))
     }
+  } else if (nbeta == "sin_sum_cos_diff") {
+    f <- function(q, p) sin(3 * pi * (p + q)) + cos(3 * pi * (p - q))
   }
 
   beta    <- outer(q, p, f)
@@ -47,7 +82,10 @@ generate_fofr_data <- function(nbasisX = 7, nbasisY = 5, nbeta = 1,
   Y       <- Y_clean
 
   for (q_ind in 1:length(q)) {
-    var_e       <- (1 / Rsq - 1) * stats::var(Y_clean[, q_ind])
+    # var_e chosen so that R2(q) = 1 - var_e/var(Y_clean) matches the target
+    # Rsq, consistent with the R2(q) definition used throughout this study
+    # (see docs/simulation_review_findings.md, section 1.2):
+    var_e       <- (1 - Rsq) * stats::var(Y_clean[, q_ind])
     Y[, q_ind]  <- Y_clean[, q_ind] +
       as.matrix(stats::rnorm(n = nrow(Y_clean), mean = 0, sd = sqrt(var_e)))
   }
@@ -88,6 +126,9 @@ redo_beta_true <- function(q, p, nbeta) {
         cos(1.5 * pi * (p + q)) +
         2   * cos(2.5 * pi * (p + q))
     }
+  }
+  else if (nbeta == "sin_sum_cos_diff") {
+    f <- function(q, p) sin(3 * pi * (p + q)) + cos(3 * pi * (p - q))
   }
 
   return(outer(q, p, f))
@@ -184,19 +225,22 @@ for(beta.num in num_betas)       {
     
     # Fix to 20 the number of basis for the generated data:
     gendata <- generate_fofr_data(nbasisX = 20, nbasisY = 20, nbeta = beta.num,
-                                  nnodesX = nnodesX, nnodesY = nnodesY, 
-                                  n = 100, n_validation = 50)
-    
+                                  nnodesX = nnodesX, nnodesY = nnodesY,
+                                  n = 100, n_validation = 50,
+                                  X_process = X_process)
+
     X_gen <- gendata$X
     Y <- gendata$Y
     beta_true <- gendata$beta_true
-    
+
     X_gen_val <- gendata$X_val
     Y_val <- gendata$Y_val
-    
+
     if (X_sd_error > 0) {
-      X <- X_gen + stats::rnorm(nrow(X_gen), mean = 0, sd = X_sd_error)
-      X_val <- X_gen_val + stats::rnorm(nrow(X_gen_val), mean = 0, sd = X_sd_error)
+      # One independent noise draw per (subject, grid point) -- NOT per subject
+      # (see docs/simulation_review_findings.md, section 1.1):
+      X     <- X_gen     + matrix(stats::rnorm(length(X_gen),     mean = 0, sd = X_sd_error), nrow = nrow(X_gen))
+      X_val <- X_gen_val + matrix(stats::rnorm(length(X_gen_val), mean = 0, sd = X_sd_error), nrow = nrow(X_gen_val))
     }else {
       X <- X_gen
       X_val <- X_gen_val
@@ -279,12 +323,14 @@ for(beta.num in num_betas)       {
     time_pffr <- system.time({  # Measure time
       
       m_final_pffr <- pffr(
-        Y ~ 0 + ff(X, xind=argvals_X), 
-        bs.yindex = list(bs="ps",    # penalized splines bases
-                         k=LL,       # number of basis for Y defined in main.R
-                         m=c(2, 2)   # cubic B-splines bases with second order difference penalty
-        ), 
-        yind=argvals_Y, 
+        Y ~ 0 + ff(X, xind = argvals_X,
+                   # Pin the predictor-direction (p) basis to KK so pFFR_I
+                   # actually uses the same number of basis functions as the
+                   # other methods -- see docs/simulation_review_findings.md,
+                   # section 1.4. Without this, refund::ff()'s own default
+                   # (k = 5) applies to the p-direction regardless of bs.yindex.
+                   splinepars = list(bs = "ps", m = list(c(2, 1), c(2, 2)), k = c(KK, LL))),
+        yind=argvals_Y,
         data=data_pffr)
     })
     

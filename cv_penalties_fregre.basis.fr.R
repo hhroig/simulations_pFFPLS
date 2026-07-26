@@ -149,9 +149,8 @@ cv_penalties_fregre.basis.fr <- function(X,
       
       # Fix class bug in fda.usc package:
       class(res_fpls) = "fregre.basis.fr"
-      res_fpls$call[[1]]=="fregre.basis.fr"
-      
-      
+
+
       # MSE_lambda_fold[row_lambda , i] <-
       num_int_1d(argvals = argvals_Y,
                  f_obs = colMeans(
@@ -212,8 +211,7 @@ cv_penalties_fregre.basis.fr <- function(X,
     
     # Fix class bug in fda.usc package:
     class(final_model) = "fregre.basis.fr"
-    final_model$call[[1]]=="fregre.basis.fr"
-    
+
     ret <- list(
       CVEs = CVEs,
       MSE_fold = MSE_fold,
