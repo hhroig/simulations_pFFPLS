@@ -365,7 +365,10 @@ for(beta.num in num_betas)       {
                                         penaltyvec_X = penaltyvec_X,
                                         penaltyvec_Y = penaltyvec_Y,
                                         verbose = TRUE,
-                                        stripped = FALSE,
+                                        # $final_model is never used below (we rebuild our own
+                                        # per-nComp model from best_penalties[nComp, ] instead) --
+                                        # see docs/penFoFPLS_package_update_compatibility.md, section 3.
+                                        stripped = TRUE,
                                         maxit = 100000 )
     })
     
@@ -424,7 +427,9 @@ for(beta.num in num_betas)       {
                                      penaltyvec_X = 0,
                                      penaltyvec_Y = 0,
                                      verbose = TRUE,
-                                     stripped = FALSE,
+                                     # $final_model is never used below -- see
+                                     # docs/penFoFPLS_package_update_compatibility.md, section 3.
+                                     stripped = TRUE,
                                      maxit = 100000 )
     })
     
@@ -477,9 +482,11 @@ for(beta.num in num_betas)       {
                                             fda_basis_func_Y = fda::create.bspline.basis,
                                             penalty_X = 0,
                                             penalty_Y = 0,
-                                            
+
                                             verbose = TRUE,
-                                            stripped = FALSE,
+                                            # $final_model is never used below -- see
+                                            # docs/penFoFPLS_package_update_compatibility.md, section 3.
+                                            stripped = TRUE,
                                             maxit = 100000 )
       })
       
