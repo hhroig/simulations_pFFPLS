@@ -780,8 +780,13 @@ for(beta.num in num_betas)       {
       
       
       ## Ivanescu's pffr --------------------------------
-      
-      beta_hat <- coef(m_final_pffr)[["smterms"]][["ff(X,argvals_X)"]]
+
+      # Index by position, not by name: the smooth term's label is derived from
+      # the deparsed ff() call, so it depends on exactly which arguments were
+      # passed (e.g. adding splinepars = ... changes it from "ff(X,argvals_X)"
+      # to a longer string). The formula has exactly one smooth term, so [[1]]
+      # is unambiguous and robust to any future change in the ff() call itself.
+      beta_hat <- coef(m_final_pffr)[["smterms"]][[1]]
       beta_true_rebuilt <- redo_beta_true(q = beta_hat$y, p = beta_hat$x, nbeta = beta.num)
       
       beta_df <- expand.grid(q = beta_hat$y, p = beta_hat$x) 
