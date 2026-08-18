@@ -1,58 +1,141 @@
 # pFFPLS Simulation Study
 
-Simulation code for the paper **"Penalized Function-on-Function PLS"** (3rd SMJ revision).
-The study compares the proposed penalized FFPLS method against several competitors on
-function-on-function regression with three different coefficient surfaces.
+Simulation code for the paper **"Penalized Function-on-Function PLS"** (3rd SMJ
+revision). The study compares the proposed penalized FFPLS method (pFFPLS) against
+several competitors on function-on-function regression: predicting an entire
+response curve $Y(q)$ from an entire predictor curve $X(p)$, both observed on
+$[0,1]$.
+
+This README explains, at a level that shouldn't require re-reading the code: what's
+being compared, what the coefficient surfaces mean and why there are four of them,
+why the predictor curves are generated two different ways, and how the settings are
+put together. For the underlying math and package-level details, see the `docs/`
+folder referenced throughout.
 
 ## Methods compared
 
 | Label | Description |
 |-------|-------------|
-| **pFFPLS** | Proposed penalized Function-on-Function PLS |
-| **FFPLS** | Unpenalized FFPLS (fixed basis count) |
-| **FFPLS_OB** | Unpenalized FFPLS with CV-selected basis count (Setting 2 only) |
-| **pFFR_I** | Ivanescu et al. penalized FFR via `refund::pffr` |
-| **pFFR_RS** | Ramsay & Silverman penalized FFR via `fda.usc` |
+| **pFFPLS** | Proposed penalized Function-on-Function PLS — the paper's contribution |
+| **FFPLS** | Unpenalized FFPLS, fixed basis count |
+| **FFPLS_OB** | Unpenalized FFPLS with a CV-selected basis count (Setting 2 only — see below) |
+| **pFFR_I** | Ivanescu et al.'s penalized FFR, via `refund::pffr` |
+| **pFFR_RS** | Ramsay & Silverman's penalized FFR, via `fda.usc` |
+
+All five methods are fit to the *same* simulated data in every repetition, so
+differences reflect the methods themselves, not different random draws.
 
 ## Coefficient functions (betas)
 
-All three betas are defined on [0,1]×[0,1] where p is the predictor argument and
-q is the response argument. They cover a spectrum of estimation difficulty:
+The object every method tries to recover is the coefficient surface $\beta(p,q)$ in
+$Y(q) = \int X(p)\,\beta(p,q)\,dp + \varepsilon(q)$. Four surfaces are used, each
+defined on $[0,1]\times[0,1]$ ($p$ = predictor argument, $q$ = response argument),
+chosen to span a spectrum of shapes and estimation difficulty rather than to
+resemble any particular application:
 
-| id | Code name | Formula | Structure | Difficulty |
-|----|-----------|---------|-----------|------------|
-| 1 | `cos_sin` | cos(2π p) · sin(2π q) | Separable, 4-lobe, 1 cycle per axis | Low |
-| 2 | `sin_sum` | sin(3π(p + q)) | Anti-diagonal, 3 oscillation cycles | Medium |
-| 3 | `cos_sum` | 0.5·cos(0.5π(p+q)) + cos(1.5π(p+q)) + 2·cos(2.5π(p+q)) | Multi-frequency anti-diagonal | High |
+| id | Code name | Formula | Shape | Difficulty |
+|----|-----------|---------|-------|------------|
+| 1 | `cos_sin` | $\cos(2\pi p)\sin(2\pi q)$ | Separable, 4-lobe checkerboard, 1 cycle per axis | Low |
+| 2 | `sin_sum` | $\sin(3\pi(p+q))$ | Anti-diagonal stripes, 3 cycles | Medium |
+| 3 | `cos_sum` | $0.5\cos(0.5\pi(p{+}q)) + \cos(1.5\pi(p{+}q)) + 2\cos(2.5\pi(p{+}q))$ | Anti-diagonal, 3 superposed frequencies | High |
+| 4 | `sin_sum_cos_diff` | $\sin(3\pi(p{+}q)) + \cos(3\pi(p{-}q))$ | Mixed diagonal **and** anti-diagonal | High (different kind) |
 
-**cos_sin** is separable, so a single PLS component captures most variation — all
-methods should perform similarly here.  
-**sin_sum** requires more components due to its anti-diagonal structure and serves
-as an intermediate test.  
-**cos_sum** is the hardest case: the high-frequency dominant term is where the
-roughness penalty in pFFPLS is most beneficial, and where unpenalized methods tend
-to over-fit.
+What each one is actually testing:
 
-See `docs/new_betas.md` for detailed motivation and shape descriptions.
+- **`cos_sin`** is a product of a function of $p$ alone and a function of $q$ alone
+  — the simplest possible non-trivial shape. A single PLS component captures almost
+  all of it, so this is the sanity-check case: every method should do reasonably
+  well here, and any method that doesn't is oversmoothing (or otherwise misbehaving)
+  on an easy target.
+- **`sin_sum`** depends only on $p+q$, so it's constant along anti-diagonal lines —
+  visually, parallel diagonal stripes. It can't be captured by one component the way
+  `cos_sin` can, so it needs more of the model's capacity and serves as an
+  intermediate-difficulty case.
+- **`cos_sum`** is also a function of $p+q$ only, but it's a sum of three different
+  oscillation frequencies with growing amplitude, so the highest-frequency term
+  dominates and the surface is genuinely rough. This is where a roughness penalty
+  should earn its keep: unpenalized methods are expected to overfit the fast
+  wiggle, while pFFPLS should track it without adding spurious noise.
+- **`sin_sum_cos_diff`** adds a *diagonal* wave, $\cos(3\pi(p-q))$, on top of
+  `sin_sum`'s anti-diagonal one. The first three betas are all, in effect,
+  functions of a single (possibly rotated) coordinate — this one genuinely isn't:
+  it has independent structure along both diagonals at once, a qualitatively
+  different, two-directional kind of difficulty. It's only used together with the
+  `fourier_decay` predictor process described next.
+
+## How the predictor curves $X(p)$ are generated
+
+Two different random processes are used to generate $X$, controlled by the
+`X_process` argument:
+
+- **`uniform_bspline`** (the default, and the one used in the paper): $X$ is a
+  random combination of 20 cubic B-spline basis functions with independent
+  Uniform$(-1,1)$ coefficients. Every one of the 20 "directions" contributes about
+  equally, so the resulting curves are moderately rough with no dominant scale.
+- **`fourier_decay`**: $X$ is a sum of 10 sine/cosine harmonic pairs with
+  independent Normal coefficients whose variance decays like $1/r^4$. The first
+  couple of harmonics dominate, so these curves are much smoother and effectively
+  low-rank — closer to what's typically simulated elsewhere in the functional-data
+  literature.
+
+The reason both exist: every method/beta combination above always shares the *same*
+predictor process by default, so any performance difference is attributable purely
+to $\beta$'s shape — there's no way to ask whether pFFPLS's penalty is only useful
+because the predictor itself happens to be rough. The `fourier_decay` runs (an
+addition beyond what's in the current paper draft — see
+`docs/new_setting_smooth_X_beta4.md`) answer exactly that question.
 
 ## Simulation settings
 
-| Setting | K = L (bases) | FFPLS_OB | max nComp | Status |
-|---------|--------------|----------|-----------|--------|
-| 1 | 7 | No | 6 | Complete (30 reps) |
-| 2 | 40 | Yes (CV-selected) | 8 | Complete (30 reps) |
-| 3 | 40 | No | 8 | Not run (commented out) |
+Each setting fixes the number of basis functions, $K = L$, used to *estimate* the
+curves — as opposed to the $K=20$ basis functions always used to *generate* them
+(see above). Comparing a setting with fewer estimation bases than generation bases
+against one with more is what lets the study probe under- and over-parameterized
+regimes:
 
-Each setting is run twice: once with clean X observations (`X_sd_error = 0`) and
-once with added observation noise (`X_sd_error = 0.2`), indicated by the `e` suffix
-in the output folder name (e.g. `set1e_...`).
+| Setting | $K=L$ (estimation bases) | Regime | FFPLS_OB run? | max # PLS components |
+|---------|---------------------------|--------|----------------|----------------------|
+| **1** | 7 | Under-parameterized (fewer bases than used to generate the data) | No | 6 |
+| **2** | 40 | Over-parameterized (more bases than used to generate the data) | Yes — its own CV search picks the basis count | 8 |
+
+A third setting (K=L=40, identical to Setting 2 but without the FFPLS_OB
+comparison) previously existed in the code but added no information beyond what
+Setting 2 already provides — it's been dropped as redundant (still present,
+commented out, at the bottom of `main_simulations_call.R` for reference).
+
+Each setting is additionally run under **four** configurations, all currently
+active and complete (30 repetitions each):
+
+| Configuration | Predictor process | $X$ noise | Betas used | Output folder |
+|---|---|---|---|---|
+| Clean | `uniform_bspline` | none | `cos_sin`, `sin_sum`, `cos_sum` | `set{1,2}_rep30_pen100_K{7,40}L{7,40}/` |
+| Noisy | `uniform_bspline` | $\sigma=0.2$ added to each observed point | `cos_sin`, `sin_sum`, `cos_sum` | `set{1,2}e_rep30_pen100_K{7,40}L{7,40}/` |
+| Clean, smooth $X$ | `fourier_decay` | none | all 4 betas, incl. `sin_sum_cos_diff` | `set{1,2}_fourier_decay_rep30_pen100_K{7,40}L{7,40}/` |
+| Noisy, smooth $X$ | `fourier_decay` | $\sigma=0.2$ | all 4 betas, incl. `sin_sum_cos_diff` | `set{1,2}e_fourier_decay_rep30_pen100_K{7,40}L{7,40}/` |
+
+i.e. $2 \text{ settings} \times 2 \text{ noise levels} \times 2 \text{ predictor
+processes} = 8$ runs in total, each 30 repetitions. Only the first two rows
+(`uniform_bspline`) are described in the current paper draft; the `fourier_decay`
+rows are the newer, exploratory addition explained above.
+
+For every run: $n=150$ curves are simulated (100 for training, 50 for testing),
+observed on a 100-point grid. Penalty parameters for pFFPLS and pFFR\_RS are
+selected by 10-fold cross-validation over a $10\times10$ log-spaced grid
+($\lambda \in [10^{-2}, 10^{12}]$ for pFFPLS, $[10^{-6}, 10^{8}]$ for pFFR\_RS);
+FFPLS\_OB's basis-count search uses the same 10-fold CV over 10 candidate sizes
+from 9 to 40. pFFR\_I uses `pffr`'s own default (REML-based) smoothing-parameter
+selection.
 
 ## How to run
 
-Install the package dependency first:
+Install the package dependency first. The reviewed/fixed build currently lives in
+this repo's local (git-ignored) `penFoFPLS/` folder — install from there to make
+sure you get it, rather than whatever is on GitHub's default branch:
 
 ```r
-devtools::install_github("hhroig/penFoFPLS", dependencies = TRUE)
+devtools::install("penFoFPLS")
+# or, once the fix is merged upstream:
+# devtools::install_github("hhroig/penFoFPLS", dependencies = TRUE)
 ```
 
 Then run the full study (simulations + comparison plots) from the project root:
@@ -61,10 +144,12 @@ Then run the full study (simulations + comparison plots) from the project root:
 source("main_simulations_call.R")
 ```
 
-The global parameters at the bottom of `main_simulations_call.R` control which
-settings are active. Settings 1 and 2 calls are currently present; Setting 3 calls
-are commented out. To re-run only the comparison and plotting step on
-already-saved results:
+The bottom of `main_simulations_call.R` lists the active `main_simulations_call()`
+calls — currently all 8 configurations from the table above, using
+`global_betas = c("cos_sin", "sin_sum", "cos_sum")` for the `uniform_bspline` runs
+and `global_betas_smooth_X = c(global_betas, "sin_sum_cos_diff")` for the
+`fourier_decay` runs. The (redundant) Setting 3 calls are commented out at the very
+end. To re-run only the comparison and plotting step on already-saved results:
 
 ```r
 library(tidyverse)
@@ -81,21 +166,32 @@ Replace the folder path with any completed setting folder to regenerate its plot
 
 ```
 main_simulations_call.R                       # Entry point — settings and active calls
-simulations_fofr_v2_with_ivanescus_...R       # Simulation loop (one rep per beta)
+simulations_fofr_v2_with_ivanescus_...R       # Simulation loop (one rep per beta); also defines
+                                               #   the 4 betas and the 2 X-generating processes
 compare_methods_fofr_with_ivanescu_...R       # Aggregation, plotting, and Excel export
 cv_penalties_fregre.basis.fr.R                # CV penalty grid wrapper for R&S method
-cv_bases_fregre.basis.fr.R                    # CV basis-count wrapper for FFPLS_OB
+cv_bases_fregre.basis.fr.R                    # (unused/dead code — not sourced anywhere)
 predict_fregre_fr.R                           # Predict wrapper for R&S method
-docs/new_betas.md                             # Motivation and formulas for the 3 betas
-docs/new_fR2.md                               # Definition and rationale for fR² metric
-results_simulations/                          # All output (one subfolder per setting)
+penFoFPLS/                                    # Local (git-ignored) copy of the estimation package
+results_simulations/                          # All output (one subfolder per configuration)
+docs/                                         # Design notes, reviews, and investigations (git-ignored)
 ```
 
-Output folder names encode the setting parameters:
-`set{setting}{e}_rep{total_reps}_pen{n_lambdas²}_K{KK}L{LL}/`
+Key files under `docs/` (all git-ignored, kept locally for reference):
 
-For example, `set2e_rep30_pen100_K40L40/` is Setting 2, noisy X, 30 reps, 10×10
-penalty grid, 40 bases.
+| File | Contents |
+|---|---|
+| `new_betas.md` | Motivation and shape descriptions for betas 1–3 |
+| `new_setting_smooth_X_beta4.md` | Motivation for the `fourier_decay` process and beta 4 |
+| `new_fR2.md` | Definition and rationale for the functional $R^2$ metric |
+| `simulation_review_findings.md` | Review of implementation vs. the paper's stated methodology, with fixes |
+| `bspline_boundary_basis_issue.md` | Investigation of a B-spline boundary-knot construction issue and its (non-)relevance here |
+| `penFoFPLS_package_update_compatibility.md` | Compatibility check against a reviewed `penFoFPLS` package build |
+
+Output folder names encode the configuration:
+`set{setting}{e}{_fourier_decay}_rep{total_reps}_pen{n_lambdas²}_K{KK}L{LL}/`
+— e.g. `set2e_fourier_decay_rep30_pen100_K40L40/` is Setting 2, noisy $X$, the
+smooth-$X$ predictor process, 30 reps, a $10\times10$ penalty grid, 40 bases.
 
 ## Saved RDS files (per repetition and beta)
 
@@ -120,7 +216,7 @@ Each subfolder is described below, roughly in order of usefulness for interpreta
 
 ### `IMSEs_CVEs_Excel/`
 
-**Start here for numeric comparisons.**  
+**Start here for numeric comparisons.**
 Contains three Excel workbooks summarising all 30 reps:
 
 | File | Contents |
@@ -133,7 +229,8 @@ Contains three Excel workbooks summarising all 30 reps:
 
 ### `IMSEs_CVEs_{beta}/`
 
-Per-beta IMSE and CVE plots (one subfolder per beta: `cos_sin`, `sin_sum`, `cos_sum`).
+Per-beta IMSE and CVE plots (one subfolder per beta: `cos_sin`, `sin_sum`,
+`cos_sum`, and — for `fourier_decay` runs — `sin_sum_cos_diff`).
 
 | File pattern | What to look at |
 |---|---|
