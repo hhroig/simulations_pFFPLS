@@ -38,7 +38,7 @@ main_simulations_call <- function(
   total_reps  = 100, # number of repetitions
   rep_starts = 1, # starting number of the repetitions
   
-  num_folds = 10 # number of folds for the cross-validation
+  num_folds = 5 # number of folds for the cross-validation
   
 ) {
   
@@ -167,90 +167,69 @@ main_simulations_call <- function(
 global_num_lambdas = 10
 global_total_reps = 30
 global_start_reps = 1
-global_betas = c("cos_sin", "sin_sum", "cos_sum")
+global_betas = c("cos_sin", "sin_sum", "cos_sum", "dbl_exp")
 
 # Betas used for the smooth-X-process setting: the three above, plus a beta
 # with mixed diagonal/anti-diagonal structure -- see
 # docs/new_setting_smooth_X_beta4.md
 global_betas_smooth_X = c(global_betas, "sin_sum_cos_diff")
 
-# 
-# # Setting 1:
+
+# # Setting 1 (5-fold CV, fast smoke test):
 # main_simulations_call(
-#   do_setting = 1, 
-#   X_sd_error = 0, 
-#   
+#   do_setting = 1,
+#   X_sd_error = 0,
+#
 #   num_betas = global_betas,  # betas ids
-#   
-#   num_lambdas = global_num_lambdas, 
+#
+#   num_lambdas = global_num_lambdas,
 #   total_reps  = global_total_reps,
-#   rep_starts = global_start_reps
+#   rep_starts = global_start_reps,
+#   num_folds = 5
 # )
-# 
+#
 # main_simulations_call(
-#   do_setting = 1, 
-#   X_sd_error = 0.2, 
-#   
-#   num_betas = global_betas,  # betas ids
-#   
-#   num_lambdas = global_num_lambdas, 
-#   total_reps  = global_total_reps,
-#   rep_starts = global_start_reps
-# )
-
-
-# Setting 2:
-main_simulations_call(
-  do_setting = 2, 
-  X_sd_error = 0, 
-  
-  num_betas = global_betas,  # betas ids
-  
-  num_lambdas = global_num_lambdas,
-  total_reps  = global_total_reps,
-  rep_starts = global_start_reps
-)
-
-main_simulations_call(
-  do_setting = 2, 
-  X_sd_error = 0.2, 
-  
-  num_betas = global_betas,  # betas ids
-  
-  num_lambdas = global_num_lambdas, 
-  total_reps  = global_total_reps,
-  rep_starts = global_start_reps
-)
-
-# 
-# # Setting 3:
-# main_simulations_call(
-#   do_setting = 3, 
-#   X_sd_error = 0, 
-#   
-#   num_betas = global_betas,  # betas ids
-#   
-#   num_lambdas = global_num_lambdas, 
-#   total_reps  = global_total_reps,
-#   rep_starts = global_start_reps
-# )
-# 
-# main_simulations_call(
-#   do_setting = 3,
+#   do_setting = 1,
 #   X_sd_error = 0.2,
 #
 #   num_betas = global_betas,  # betas ids
 #
 #   num_lambdas = global_num_lambdas,
 #   total_reps  = global_total_reps,
-#   rep_starts = global_start_reps
+#   rep_starts = global_start_reps,
+#   num_folds = 5
 # )
 
 
-# Setting 4: smooth, low-rank predictor process (X_process = "fourier_decay"),
-# reusing Setting 1's basis dimensions (K = L = 7). See
-# docs/new_setting_smooth_X_beta4.md for the full rationale. Do a small
-# smoke-test run (e.g. total_reps = 1-2) before committing to a full run.
+# Setting 2, usual X (uniform_bspline):
+main_simulations_call(
+  do_setting = 2,
+  X_sd_error = 0,
+
+  num_betas = global_betas,  # betas ids
+
+  num_lambdas = global_num_lambdas,
+  total_reps  = global_total_reps,
+  rep_starts = global_start_reps
+)
+
+main_simulations_call(
+  do_setting = 2,
+  X_sd_error = 0.2,
+
+  num_betas = global_betas,  # betas ids
+
+  num_lambdas = global_num_lambdas,
+  total_reps  = global_total_reps,
+  rep_starts = global_start_reps
+)
+
+
+
+# # FOURIER DECAY: smooth, low-rank predictor process (X_process = "fourier_decay"),
+# # reusing Setting 1's basis dimensions (K = L = 7). See
+# # docs/new_setting_smooth_X_beta4.md for the full rationale. Do a small
+# # smoke-test run (e.g. total_reps = 1-2) before committing to a full run.
 # main_simulations_call(
 #   do_setting = 1,
 #   X_sd_error = 0,
@@ -270,6 +249,59 @@ main_simulations_call(
 #
 #   num_betas = global_betas_smooth_X,  # betas ids, includes sin_sum_cos_diff
 #
+#   num_lambdas = global_num_lambdas,
+#   total_reps  = global_total_reps,
+#   rep_starts = global_start_reps
+# )
+
+# Setting 2, fourier decay X:
+main_simulations_call(
+  do_setting = 2,
+  X_sd_error = 0,
+  X_process = "fourier_decay",
+
+  num_betas = global_betas_smooth_X,  # betas ids, includes sin_sum_cos_diff
+
+  num_lambdas = global_num_lambdas,
+  total_reps  = global_total_reps,
+  rep_starts = global_start_reps
+)
+
+main_simulations_call(
+  do_setting = 2,
+  X_sd_error = 0.2,
+  X_process = "fourier_decay",
+
+  num_betas = global_betas_smooth_X,  # betas ids, includes sin_sum_cos_diff
+
+  num_lambdas = global_num_lambdas,
+  total_reps  = global_total_reps,
+  rep_starts = global_start_reps
+)
+
+
+
+
+
+# # Redundant
+# # Setting 3:
+# main_simulations_call(
+#   do_setting = 3,
+#   X_sd_error = 0,
+# 
+#   num_betas = global_betas,  # betas ids
+# 
+#   num_lambdas = global_num_lambdas,
+#   total_reps  = global_total_reps,
+#   rep_starts = global_start_reps
+# )
+# 
+# main_simulations_call(
+#   do_setting = 3,
+#   X_sd_error = 0.2,
+# 
+#   num_betas = global_betas,  # betas ids
+# 
 #   num_lambdas = global_num_lambdas,
 #   total_reps  = global_total_reps,
 #   rep_starts = global_start_reps

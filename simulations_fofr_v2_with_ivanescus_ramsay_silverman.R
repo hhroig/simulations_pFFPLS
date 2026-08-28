@@ -70,6 +70,13 @@ generate_fofr_data <- function(nbasisX = 7, nbasisY = 5, nbeta = 1,
     }
   } else if (nbeta == "sin_sum_cos_diff") {
     f <- function(q, p) sin(3 * pi * (p + q)) + cos(3 * pi * (p - q))
+  } else if (nbeta == "dbl_exp") {
+    # Original paper beta_2 (main_2nd_revision_definitivo.tex, line 536-539):
+    # double exponential with peaks at (0.75, 0.75) and (0.1, 0.1).
+    f <- function(q, p) {
+      5 * exp(-((p - 0.75)^2 + (q - 0.75)^2) / (2 * 0.25^2)) +
+        5 * exp(-((p - 0.1)^2  + (q - 0.1)^2)  / (2 * 0.25^2))
+    }
   }
 
   beta    <- outer(q, p, f)
@@ -129,6 +136,12 @@ redo_beta_true <- function(q, p, nbeta) {
   }
   else if (nbeta == "sin_sum_cos_diff") {
     f <- function(q, p) sin(3 * pi * (p + q)) + cos(3 * pi * (p - q))
+  }
+  else if (nbeta == "dbl_exp") {
+    f <- function(q, p) {
+      5 * exp(-((p - 0.75)^2 + (q - 0.75)^2) / (2 * 0.25^2)) +
+        5 * exp(-((p - 0.1)^2  + (q - 0.1)^2)  / (2 * 0.25^2))
+    }
   }
 
   return(outer(q, p, f))
