@@ -77,6 +77,24 @@ generate_fofr_data <- function(nbasisX = 7, nbasisY = 5, nbeta = 1,
       5 * exp(-((p - 0.75)^2 + (q - 0.75)^2) / (2 * 0.25^2)) +
         5 * exp(-((p - 0.1)^2  + (q - 0.1)^2)  / (2 * 0.25^2))
     }
+  } else if (nbeta == "local_ridge") {
+    # See docs/new_betas_reviewer1_response_2026-09-06.md: rank-1 localized
+    # ridge, sharp in p only. Needs a fine generating basis (>=50) and
+    # estimation K=L=40 to be representable -- do not use at Setting 1 (K=7).
+    f <- function(q, p) 5 * cos(2 * pi * q) * exp(-(p - 0.5)^2 / (2 * 0.05^2))
+  } else if (nbeta == "asym_step") {
+    # Rank-2, asymmetric: a steep logistic step in p gates a second,
+    # different-frequency term in q. See docs/new_betas_reviewer1_response_2026-09-06.md.
+    f <- function(q, p) {
+      cos(2 * pi * p) * sin(2 * pi * q) +
+        3 * stats::plogis((p - 0.5) / 0.03) * cos(4 * pi * q)
+    }
+  } else if (nbeta == "aniso_peak") {
+    # Sharp, anisotropic, off-diagonal single peak -- a harder, asymmetric
+    # upgrade of dbl_exp. See docs/new_betas_reviewer1_response_2026-09-06.md.
+    f <- function(q, p) {
+      5 * exp(-((p - 0.5)^2 / (2 * 0.3^2) + (q - 0.15)^2 / (2 * 0.05^2)))
+    }
   }
 
   beta    <- outer(q, p, f)
@@ -143,30 +161,31 @@ redo_beta_true <- function(q, p, nbeta) {
         5 * exp(-((p - 0.1)^2  + (q - 0.1)^2)  / (2 * 0.25^2))
     }
   }
+  else if (nbeta == "local_ridge") {
+    f <- function(q, p) 5 * cos(2 * pi * q) * exp(-(p - 0.5)^2 / (2 * 0.05^2))
+  }
+  else if (nbeta == "asym_step") {
+    f <- function(q, p) {
+      cos(2 * pi * p) * sin(2 * pi * q) +
+        3 * stats::plogis((p - 0.5) / 0.03) * cos(4 * pi * q)
+    }
+  }
+  else if (nbeta == "aniso_peak") {
+    f <- function(q, p) {
+      5 * exp(-((p - 0.5)^2 / (2 * 0.3^2) + (q - 0.15)^2 / (2 * 0.05^2)))
+    }
+  }
 
   return(outer(q, p, f))
 }
 
 
 
-# R2 function on q --------------------------------------
-
-R_sqr_function <- function(y_true, y_pred) {
-
-  y_mean <- colMeans(y_true)
-
-  SST <- colMeans((y_true - y_mean)^2)
-  SSR <- colMeans((y_true - y_pred)^2)
-
-  R2 <- 1 - SSR/SST
-
-  return(R2)
-
-
-}
-
-
 # Functional R2 (scalar: pools across all observations and time points) ---
+# (Pointwise R2(q) was dropped -- see docs/new_betas_reviewer1_response_2026-09-06.md,
+# "Trimming unnecessary computation": it's driven almost entirely by the
+# injected noise level and identical by construction across methods within a
+# setting. fR2 is the informative scalar summary and is kept.)
 
 fR2_function <- function(y_true, y_pred) {
   SST <- sum(sweep(y_true, 2, colMeans(y_true))^2)
@@ -219,7 +238,6 @@ for(beta.num in num_betas)       {
     all_val_MSEs <- data.frame()
     all_beta_hats <- data.frame()
     all_final_res <- data.frame()
-    all_r2s  <- data.frame()
     all_fr2s <- data.frame()
     best_lambdas <- data.frame()
     computation_times <- data.frame()  
@@ -236,8 +254,13 @@ for(beta.num in num_betas)       {
     # Generate data -----------------------------------------------------------
     cat("    -> generating data\n")
     
-    # Fix to 20 the number of basis for the generated data:
-    gendata <- generate_fofr_data(nbasisX = 20, nbasisY = 20, nbeta = beta.num,
+    # Number of basis used to generate the data (and to represent the true
+    # beta before Y is computed) -- deliberately decoupled from KK/LL, the
+    # basis the estimation methods use. Defaults to 20; see
+    # docs/new_betas_reviewer1_response_2026-09-06.md, "Number of basis
+    # functions to use", for why the sharp/localized betas need this raised
+    # to 50 (passed in as `gen_nbasis` from main_simulations_call.R).
+    gendata <- generate_fofr_data(nbasisX = gen_nbasis, nbasisY = gen_nbasis, nbeta = beta.num,
                                   nnodesX = nnodesX, nnodesY = nnodesY,
                                   n = 100, n_validation = 50,
                                   X_process = X_process)
@@ -601,20 +624,9 @@ for(beta.num in num_betas)       {
       
       
       
-      # Compute R2 for the training and validation sets:
+      # Compute fR2 for the training and validation sets:
       y_pred <- fitted.values(m_final)[ , , nComp]
       y_val_pred <- predict(object = m_final, newdata = X_val)[, , nComp]
-      
-      all_r2s <- rbind(all_r2s,
-                       tibble(
-                         R2_train = R_sqr_function(Y, y_pred),
-                         R2_val = R_sqr_function(Y_val, y_val_pred),
-                         q = argvals_Y,
-                         nComp = nComp,
-                         beta.num = beta.num,
-                         rep_num = rep_num,
-                         method = "pFFPLS")
-      )
 
       all_fr2s <- rbind(all_fr2s,
                         tibble(
@@ -677,20 +689,9 @@ for(beta.num in num_betas)       {
       )
       
       
-      # Compute R2 for the training and validation sets:
+      # Compute fR2 for the training and validation sets:
       y_pred <- fitted.values(m_final)[ , , nComp]
       y_val_pred <- predict(object = m_final, newdata = X_val)[, , nComp]
-      
-      all_r2s <- rbind(all_r2s,
-                       tibble(
-                         R2_train = R_sqr_function(Y, y_pred),
-                         R2_val = R_sqr_function(Y_val, y_val_pred),
-                         q = argvals_Y,
-                         nComp = nComp,
-                         beta.num = beta.num,
-                         rep_num = rep_num,
-                         method = "FFPLS")
-      )
 
       all_fr2s <- rbind(all_fr2s,
                         tibble(
@@ -761,20 +762,9 @@ for(beta.num in num_betas)       {
         )
         
         
-        # Compute R2 for the training and validation sets:
+        # Compute fR2 for the training and validation sets:
         y_pred <- fitted.values(m_final)[ , , nComp]
         y_val_pred <- predict(object = m_final, newdata = X_val)[, , nComp]
-        
-        all_r2s <- rbind(all_r2s,
-                         tibble(
-                           R2_train = R_sqr_function(Y, y_pred),
-                           R2_val = R_sqr_function(Y_val, y_val_pred),
-                           q = argvals_Y,
-                           nComp = nComp,
-                           beta.num = beta.num,
-                           rep_num = rep_num,
-                           method = "FFPLS_OB")
-        )
 
         all_fr2s <- rbind(all_fr2s,
                           tibble(
@@ -836,20 +826,9 @@ for(beta.num in num_betas)       {
       
       
       
-      # Compute R2 for the training and validation sets:
+      # Compute fR2 for the training and validation sets:
       y_pred <- predict(m_final_pffr)
       y_val_pred <- predict(m_final_pffr, newdata = list(X = X_val))
-      
-      all_r2s <- rbind(all_r2s,
-                       tibble(
-                         R2_train = R_sqr_function(Y, y_pred),
-                         R2_val = R_sqr_function(Y_val, y_val_pred),
-                         q = argvals_Y,
-                         nComp = nComp,
-                         beta.num = beta.num,
-                         rep_num = rep_num,
-                         method = "pFFR_I")
-      )
 
       all_fr2s <- rbind(all_fr2s,
                         tibble(
@@ -913,19 +892,8 @@ for(beta.num in num_betas)       {
       
       
       
-      # Compute R2 for the training and validation sets:
+      # Compute fR2 for the training and validation sets:
       y_pred <- fitted.values(m_final_rs)$data
-      
-      all_r2s <- rbind(all_r2s,
-                       tibble(
-                         R2_train = R_sqr_function(Y, y_pred),
-                         R2_val = R_sqr_function(Y_val, y_val_pred),
-                         q = argvals_Y,
-                         nComp = nComp,
-                         beta.num = beta.num,
-                         rep_num = rep_num,
-                         method = "pFFR_RS")
-      )
 
       all_fr2s <- rbind(all_fr2s,
                         tibble(
@@ -990,14 +958,6 @@ for(beta.num in num_betas)       {
     }
     
     
-    saveRDS(all_r2s, file =
-              paste0(out_folder,
-                     "R2s_rep_",
-                     rep_num,
-                     "_beta_",
-                     beta.num,
-                     ".Rds"))
-
     saveRDS(all_fr2s, file =
               paste0(out_folder,
                      "fR2s_rep_",

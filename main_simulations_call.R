@@ -24,29 +24,48 @@ main_simulations_call <- function(
                                   # (default) or "fourier_decay" -- see
                                   # docs/new_setting_smooth_X_beta4.md
 
-  num_lambdas = 10, # number of lambdas to be used in the grid search (for all)
-  
-  lower_penalty_bound_RS = -6, # lower bound for the penalty grid search in Ramsay & Silverman
-  upper_penalty_bound_RS = 8, # upper bound for the penalty grid search in Ramsay & Silverman
-  
+  gen_nbasis = 20, # number of basis used to GENERATE the data (X and the true
+                   # beta), decoupled from KK/LL below -- default 20 matches
+                   # the original hardcoded value for the existing betas; the
+                   # new sharp/localized betas (local_ridge, asym_step,
+                   # aniso_peak) need this raised to 50, see
+                   # docs/new_betas_reviewer1_response_2026-09-06.md
+
+  num_lambdas = 10, # number of lambdas in the pFFPLS/FFPLS penalty grid search
+  num_lambdas_RS = 8, # number of lambdas in the Ramsay & Silverman grid search
+                      # -- kept separate from num_lambdas because the two
+                      # methods' CV-optimal penalties land in very different
+                      # ranges, see docs/new_betas_reviewer1_response_2026-09-06.md,
+                      # "Penalty (lambda) grid design"
+
+  # Empirically, >=87% of pFFR_RS's CV-selected penalties hit the old floor
+  # (1e-6) in Setting 2, with essentially nothing above 1e-4.44 out of a
+  # range that went up to 1e8 -- most of the old grid was never selected.
+  # Range shifted down and narrowed accordingly (see doc above):
+  lower_penalty_bound_RS = -12, # lower bound for the penalty grid search in Ramsay & Silverman
+  upper_penalty_bound_RS = -2, # upper bound for the penalty grid search in Ramsay & Silverman
+
+  # pFFPLS, by contrast, genuinely uses the full old range (real selections
+  # at both the floor and the ceiling), so its range is kept as wide, plus a
+  # bit more headroom at the top where some selections were still censored:
   lower_penalty_bound = -2, # lower bound for the penalty grid search in the proposed method
-  upper_penalty_bound = 12, # upper bound for the penalty grid search in the proposed method
-  
+  upper_penalty_bound = 14, # upper bound for the penalty grid search in the proposed method
+
   nnodesX = 100, # number of nodes for the functional predictors
   nnodesY = 100, # number of nodes for the functional response
-  
+
   total_reps  = 100, # number of repetitions
   rep_starts = 1, # starting number of the repetitions
-  
+
   num_folds = 5 # number of folds for the cross-validation
-  
+
 ) {
-  
+
   # Grid search penalties for Ramsay & Silverman:
-  lambdas_in_RS  <-  seq(lower_penalty_bound_RS, 
-                         upper_penalty_bound_RS, 
-                         length.out = num_lambdas)
-  lambdas_in_RS  <-  10^(lambdas_in_RS)  
+  lambdas_in_RS  <-  seq(lower_penalty_bound_RS,
+                         upper_penalty_bound_RS,
+                         length.out = num_lambdas_RS)
+  lambdas_in_RS  <-  10^(lambdas_in_RS)
   penaltyvec_X_RS <- penaltyvec_Y_RS <- lambdas_in_RS
   
   
@@ -117,6 +136,7 @@ main_simulations_call <- function(
                        "set", do_setting,
                        ifelse(X_sd_error > 0, "e", ""),
                        ifelse(X_process != "uniform_bspline", paste0("_", X_process), ""),
+                       ifelse(gen_nbasis != 20, paste0("_genK", gen_nbasis), ""),
                        "_rep",
                        total_reps,
                        "_pen",
@@ -174,6 +194,32 @@ global_betas = c("cos_sin", "sin_sum", "cos_sum", "dbl_exp")
 # docs/new_setting_smooth_X_beta4.md
 global_betas_smooth_X = c(global_betas, "sin_sum_cos_diff")
 
+# New coefficient functions proposed in response to Reviewer 1 (2nd revision)
+# -- rank-1/rank-2 surfaces with a sharp, localized, or anisotropic feature.
+# See docs/new_betas_reviewer1_response_2026-09-06.md.
+global_new_betas = c("local_ridge", "asym_step", "aniso_peak")
+
+
+# Smoke test: reviewer-response betas (local_ridge, asym_step, aniso_peak).
+# Setting 2 (K=L=40) only -- Setting 1 (K=7) is skipped for these betas, its
+# basis is too coarse to represent the sharp features at all (see the doc's
+# "Number of basis functions to use"). gen_nbasis = 50 raises the *generating*
+# basis (independent of KK=LL=40) so the sharp features survive into the true
+# data before any method tries to recover them. total_reps kept small (2) for
+# a first pass; bump this up once the pilot looks sane.
+main_simulations_call(
+  do_setting = 2,
+  X_sd_error = 0,
+
+  num_betas = global_new_betas,
+
+  gen_nbasis = 50,
+
+  num_lambdas = global_num_lambdas,
+  total_reps  = 2,
+  rep_starts  = 1
+)
+
 
 # # Setting 1 (5-fold CV, fast smoke test):
 # main_simulations_call(
@@ -201,28 +247,28 @@ global_betas_smooth_X = c(global_betas, "sin_sum_cos_diff")
 # )
 
 
-# Setting 2, usual X (uniform_bspline):
-main_simulations_call(
-  do_setting = 2,
-  X_sd_error = 0,
-
-  num_betas = global_betas,  # betas ids
-
-  num_lambdas = global_num_lambdas,
-  total_reps  = global_total_reps,
-  rep_starts = global_start_reps
-)
-
-main_simulations_call(
-  do_setting = 2,
-  X_sd_error = 0.2,
-
-  num_betas = global_betas,  # betas ids
-
-  num_lambdas = global_num_lambdas,
-  total_reps  = global_total_reps,
-  rep_starts = global_start_reps
-)
+# # Setting 2, usual X (uniform_bspline):
+# main_simulations_call(
+#   do_setting = 2,
+#   X_sd_error = 0,
+#
+#   num_betas = global_betas,  # betas ids
+#
+#   num_lambdas = global_num_lambdas,
+#   total_reps  = global_total_reps,
+#   rep_starts = global_start_reps
+# )
+#
+# main_simulations_call(
+#   do_setting = 2,
+#   X_sd_error = 0.2,
+#
+#   num_betas = global_betas,  # betas ids
+#
+#   num_lambdas = global_num_lambdas,
+#   total_reps  = global_total_reps,
+#   rep_starts = global_start_reps
+# )
 
 
 
@@ -254,30 +300,30 @@ main_simulations_call(
 #   rep_starts = global_start_reps
 # )
 
-# Setting 2, fourier decay X:
-main_simulations_call(
-  do_setting = 2,
-  X_sd_error = 0,
-  X_process = "fourier_decay",
-
-  num_betas = global_betas_smooth_X,  # betas ids, includes sin_sum_cos_diff
-
-  num_lambdas = global_num_lambdas,
-  total_reps  = global_total_reps,
-  rep_starts = global_start_reps
-)
-
-main_simulations_call(
-  do_setting = 2,
-  X_sd_error = 0.2,
-  X_process = "fourier_decay",
-
-  num_betas = global_betas_smooth_X,  # betas ids, includes sin_sum_cos_diff
-
-  num_lambdas = global_num_lambdas,
-  total_reps  = global_total_reps,
-  rep_starts = global_start_reps
-)
+# # Setting 2, fourier decay X:
+# main_simulations_call(
+#   do_setting = 2,
+#   X_sd_error = 0,
+#   X_process = "fourier_decay",
+#
+#   num_betas = global_betas_smooth_X,  # betas ids, includes sin_sum_cos_diff
+#
+#   num_lambdas = global_num_lambdas,
+#   total_reps  = global_total_reps,
+#   rep_starts = global_start_reps
+# )
+#
+# main_simulations_call(
+#   do_setting = 2,
+#   X_sd_error = 0.2,
+#   X_process = "fourier_decay",
+#
+#   num_betas = global_betas_smooth_X,  # betas ids, includes sin_sum_cos_diff
+#
+#   num_lambdas = global_num_lambdas,
+#   total_reps  = global_total_reps,
+#   rep_starts = global_start_reps
+# )
 
 
 
