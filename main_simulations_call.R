@@ -46,10 +46,16 @@ main_simulations_call <- function(
   upper_penalty_bound_RS = -2, # upper bound for the penalty grid search in Ramsay & Silverman
 
   # pFFPLS, by contrast, genuinely uses the full old range (real selections
-  # at both the floor and the ceiling), so its range is kept as wide, plus a
-  # bit more headroom at the top where some selections were still censored:
+  # at both the floor and the ceiling). Tried widening upper_penalty_bound to
+  # 14 to reduce that censoring, but at K=L=40 that makes RPhi + penalty*P
+  # numerically singular inside cv_unique_fof_par's solve() (reciprocal
+  # condition number ~1.6e-17) -- 1e12 is apparently already close to the
+  # edge of what double precision survives here, so 12 is a hard ceiling for
+  # now, not just a design choice. See
+  # docs/new_betas_reviewer1_response_2026-09-06.md, "Penalty (lambda) grid
+  # design".
   lower_penalty_bound = -2, # lower bound for the penalty grid search in the proposed method
-  upper_penalty_bound = 14, # upper bound for the penalty grid search in the proposed method
+  upper_penalty_bound = 12, # upper bound for the penalty grid search in the proposed method
 
   nnodesX = 100, # number of nodes for the functional predictors
   nnodesY = 100, # number of nodes for the functional response
@@ -200,13 +206,16 @@ global_betas_smooth_X = c(global_betas, "sin_sum_cos_diff")
 global_new_betas = c("local_ridge", "asym_step", "aniso_peak")
 
 
-# Smoke test: reviewer-response betas (local_ridge, asym_step, aniso_peak).
-# Setting 2 (K=L=40) only -- Setting 1 (K=7) is skipped for these betas, its
-# basis is too coarse to represent the sharp features at all (see the doc's
-# "Number of basis functions to use"). gen_nbasis = 50 raises the *generating*
-# basis (independent of KK=LL=40) so the sharp features survive into the true
-# data before any method tries to recover them. total_reps kept small (2) for
-# a first pass; bump this up once the pilot looks sane.
+# Continuation of the reviewer-response betas (local_ridge, asym_step,
+# aniso_peak): reps 1-10 already exist (manually copied into
+# results_simulations/set2_genK50_rep20_pen100_K40L40/, matching the folder
+# name this call computes from total_reps=20), so rep_starts=11 picks up from
+# there instead of re-running/overwriting them -- same continuation recipe as
+# the rep3-10 batch. Setting 2 (K=L=40) only -- Setting 1 (K=7) is skipped for
+# these betas, its basis is too coarse to represent the sharp features at all
+# (see the doc's "Number of basis functions to use"). gen_nbasis = 50 raises
+# the *generating* basis (independent of KK=LL=40) so the sharp features
+# survive into the true data before any method tries to recover them.
 main_simulations_call(
   do_setting = 2,
   X_sd_error = 0,
@@ -216,8 +225,8 @@ main_simulations_call(
   gen_nbasis = 50,
 
   num_lambdas = global_num_lambdas,
-  total_reps  = 2,
-  rep_starts  = 1
+  total_reps  = 20,
+  rep_starts  = 11
 )
 
 
