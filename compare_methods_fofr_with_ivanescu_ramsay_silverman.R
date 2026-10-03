@@ -1007,7 +1007,18 @@ compare_methods_fun <- function(input_folder,
     if (!dir.exists(path)) {
       dir.create(path, recursive = TRUE)
     }
-    
+
+    # Two subfolders: shared_scale/ (one z-axis range across every method
+    # and the true beta -- best for comparing magnitude at a glance) and
+    # owned_scale/ (each surface its own z-axis range -- best for seeing
+    # each surface's actual shape, since shared scale visually flattens any
+    # method whose range is much smaller than the most extreme method's,
+    # e.g. pFFR_RS):
+    path_shared <- paste0(path, "shared_scale/")
+    path_owned  <- paste0(path, "owned_scale/")
+    if (!dir.exists(path_shared)) dir.create(path_shared, recursive = TRUE)
+    if (!dir.exists(path_owned))  dir.create(path_owned,  recursive = TRUE)
+
     # Define True Beta:
     beta_true <- df_true_betas %>% 
       filter(beta.num == beta_num) %>% 
@@ -1107,10 +1118,10 @@ compare_methods_fun <- function(input_folder,
         next
       }
 
-      # File paths for saving
-      pdf_file <- paste0(path, unique_method, "_beta", beta_num, "_ncomp", n.Comp, ".pdf")
-      eps_file <- paste0(path, unique_method, "_beta", beta_num, "_ncomp", n.Comp, ".eps")
-      png_file <- paste0(path, unique_method, "_beta", beta_num, "_ncomp", n.Comp, ".png")
+      # File paths for saving (shared_scale/ subfolder)
+      pdf_file <- paste0(path_shared, unique_method, "_beta", beta_num, "_ncomp", n.Comp, ".pdf")
+      eps_file <- paste0(path_shared, unique_method, "_beta", beta_num, "_ncomp", n.Comp, ".eps")
+      png_file <- paste0(path_shared, unique_method, "_beta", beta_num, "_ncomp", n.Comp, ".png")
       
       # Save as PDF
       pdf(pdf_file, width = 7, height = 5)
@@ -1148,30 +1159,60 @@ compare_methods_fun <- function(input_folder,
       
       # Save as PNG
       png(png_file, width = 800, height = 600, res = 100)
-      persp(x = x, 
-            y = y, 
-            z = estimated_betas_matrix[[unique_method]], 
+      persp(x = x,
+            y = y,
+            z = estimated_betas_matrix[[unique_method]],
             col = "white",
-            xlab = "p", 
-            ylab = "q", 
-            zlab = "z", 
-            zlim = zs_scale, 
-            theta = theta, 
+            xlab = "p",
+            ylab = "q",
+            zlab = "z",
+            zlim = zs_scale,
+            theta = theta,
             phi = phi,
-            expand = 0.5, 
-            shade = 0.5, 
+            expand = 0.5,
+            shade = 0.5,
             ticktype = "detailed")
       dev.off()
-      
+
       print(paste("Saved 3D plot for", unique_method, "as PDF, EPS, and PNG."))
+
+      # Same surface again, but with THIS METHOD'S OWN z-scale instead of
+      # the shared zs_scale above -- saved into owned_scale/ (see rationale
+      # where path_shared/path_owned are created above).
+      own_zlim <- range(estimated_betas_matrix[[unique_method]], na.rm = TRUE)
+
+      pdf_file_own <- paste0(path_owned, unique_method, "_beta", beta_num, "_ncomp", n.Comp, ".pdf")
+      eps_file_own <- paste0(path_owned, unique_method, "_beta", beta_num, "_ncomp", n.Comp, ".eps")
+      png_file_own <- paste0(path_owned, unique_method, "_beta", beta_num, "_ncomp", n.Comp, ".png")
+
+      pdf(pdf_file_own, width = 7, height = 5)
+      persp(x = x, y = y, z = estimated_betas_matrix[[unique_method]], col = "white",
+            xlab = "p", ylab = "q", zlab = "z", zlim = own_zlim,
+            theta = theta, phi = phi, expand = 0.5, shade = 0.5, ticktype = "detailed")
+      dev.off()
+
+      postscript(eps_file_own, width = 7, height = 5, horizontal = FALSE, paper = "special")
+      persp(x = x, y = y, z = estimated_betas_matrix[[unique_method]], col = "white",
+            xlab = "p", ylab = "q", zlab = "z", zlim = own_zlim,
+            theta = theta, phi = phi, expand = 0.5, shade = 0.5, ticktype = "detailed")
+      dev.off()
+
+      png(png_file_own, width = 800, height = 600, res = 100)
+      persp(x = x, y = y, z = estimated_betas_matrix[[unique_method]], col = "white",
+            xlab = "p", ylab = "q", zlab = "z", zlim = own_zlim,
+            theta = theta, phi = phi, expand = 0.5, shade = 0.5, ticktype = "detailed")
+      dev.off()
+
+      print(paste("Saved OWN-SCALE 3D plot for", unique_method, "as PDF, EPS, and PNG. zlim =",
+                  paste(round(own_zlim, 3), collapse = " to ")))
     } # end iterate over each method
-    
-    # Now the true beta
-    
-    pdf_file <- paste0(path, "True_beta", beta_num, "_ncomp", n.Comp, ".pdf")
-    eps_file <- paste0(path, "True_beta", beta_num, "_ncomp", n.Comp, ".eps")
-    png_file <- paste0(path, "True_beta", beta_num, "_ncomp", n.Comp, ".png")
-    
+
+    # Now the true beta (shared_scale/ subfolder)
+
+    pdf_file <- paste0(path_shared, "True_beta", beta_num, "_ncomp", n.Comp, ".pdf")
+    eps_file <- paste0(path_shared, "True_beta", beta_num, "_ncomp", n.Comp, ".eps")
+    png_file <- paste0(path_shared, "True_beta", beta_num, "_ncomp", n.Comp, ".png")
+
     # Save as PDF
     pdf(pdf_file, width = 7, height = 5)
     persp(x = x_true,
@@ -1212,20 +1253,47 @@ compare_methods_fun <- function(input_folder,
           y = y_true,
           z = z_true,
           col = "white",
-          xlab = "p", 
-          ylab = "q", 
-          zlab = "z", 
-          zlim = zs_scale, 
-          theta = theta, 
+          xlab = "p",
+          ylab = "q",
+          zlab = "z",
+          zlim = zs_scale,
+          theta = theta,
           phi = phi,
-          expand = 0.5, 
-          shade = 0.5, 
+          expand = 0.5,
+          shade = 0.5,
           ticktype = "detailed")
     dev.off()
-    
-    
-    
-    
+
+    # True beta again, with its OWN z-scale (its actual range, not borrowed
+    # from any method's estimate) -- saved into owned_scale/:
+    true_zlim <- range(z_true, na.rm = TRUE)
+
+    pdf_file_own <- paste0(path_owned, "True_beta", beta_num, "_ncomp", n.Comp, ".pdf")
+    eps_file_own <- paste0(path_owned, "True_beta", beta_num, "_ncomp", n.Comp, ".eps")
+    png_file_own <- paste0(path_owned, "True_beta", beta_num, "_ncomp", n.Comp, ".png")
+
+    pdf(pdf_file_own, width = 7, height = 5)
+    persp(x = x_true, y = y_true, z = z_true, col = "white",
+          xlab = "p", ylab = "q", zlab = "z", zlim = true_zlim,
+          theta = theta, phi = phi, expand = 0.5, shade = 0.5, ticktype = "detailed")
+    dev.off()
+
+    postscript(eps_file_own, width = 7, height = 5, horizontal = FALSE, paper = "special")
+    persp(x = x_true, y = y_true, z = z_true, col = "white",
+          xlab = "p", ylab = "q", zlab = "z", zlim = true_zlim,
+          theta = theta, phi = phi, expand = 0.5, shade = 0.5, ticktype = "detailed")
+    dev.off()
+
+    png(png_file_own, width = 800, height = 600, res = 100)
+    persp(x = x_true, y = y_true, z = z_true, col = "white",
+          xlab = "p", ylab = "q", zlab = "z", zlim = true_zlim,
+          theta = theta, phi = phi, expand = 0.5, shade = 0.5, ticktype = "detailed")
+    dev.off()
+
+    print(paste("Saved OWN-SCALE 3D plot for True Beta. zlim =",
+                paste(round(true_zlim, 3), collapse = " to ")))
+
+
   } # ends function 3D betas as 2D
   
   
