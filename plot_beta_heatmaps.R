@@ -9,8 +9,9 @@
 #                                      (see each surface's shape, e.g. pFFR_RS's flat estimate)
 # pFFR_I and pFFR_RS do not depend on H; they are repeated in every panel.
 #
-# Colour: diverging blue (negative) - light gray (0) - red (positive), with limits
-# symmetric around 0 so equal colours mean equal magnitudes on both sides.
+# Colour: viridis, whose lightness increases monotonically, so the maps stay readable in
+# black-and-white print and for colour-blind readers. Limits are symmetric around 0, so
+# 0 is always the middle shade: negative values are darker, positive values brighter.
 
 library(ggplot2)
 
@@ -64,13 +65,14 @@ plot_beta_heatmaps <- function(input_folder, n_comps = NULL, width = 10, height 
 
       heat <- function(dd, lim, title = NULL) {
         ggplot(dd, aes(x = p, y = q, fill = z)) +
-          geom_tile(aes(width = w, height = h)) +
-          scale_fill_gradient2(low = "#2a78d6", mid = "#f0efec", high = "#e34948",
-                               midpoint = 0, limits = c(-lim, lim),
+          # tiles overlap their neighbours by 5%: avoids the anti-aliasing seams that
+          # otherwise show up as a faint grid in PNG/PDF viewers
+          geom_tile(aes(width = 1.05 * w, height = 1.05 * h)) +
+          scale_fill_viridis_c(option = "viridis", limits = c(-lim, lim),
                                name = expression(beta(q, p))) +
           scale_x_continuous(expand = c(0, 0), breaks = c(0, 0.5, 1), labels = c("0", "0.5", "1")) +
           scale_y_continuous(expand = c(0, 0), breaks = c(0, 0.5, 1), labels = c("0", "0.5", "1")) +
-          coord_fixed() +
+          coord_fixed(xlim = c(0, 1), ylim = c(0, 1), expand = FALSE) +
           labs(x = "p (predictor domain)", y = "q (response domain)", title = title) +
           theme_bw(base_size = 12) +
           theme(panel.grid = element_blank(), strip.background = element_rect(fill = "white"),
