@@ -7,3 +7,6 @@ docs/
 penFoFPLS
 smoke_test_log.txt
 logs/
+
+# Earlier scenarios, one-off scripts and superseded versions (kept on disk, not in the repo)
+deprecated/

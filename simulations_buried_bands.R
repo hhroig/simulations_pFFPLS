@@ -1,170 +1,108 @@
-## Standalone "buried PCA signal, SHARP/LOCALIZED shape" simulation scenario --
-## see docs/new_scenario_buried_pca_sharp_signal_2026-09-28.md for the full
-## rationale. Extends simulations_buried_pca_signal.R (which buries a single
-## pure sinusoid in one low-variance X direction): here the true beta's
-## p-shape is a genuinely SHARP, LOCALIZED pulse centered at p=0.5 (per
-## Reviewer 1's ask #1: "sharp local peaks ... or rapid variation in one
-## direction"), built from a CLUSTER of low-variance ("buried") Fourier
-## cosine directions of X rather than one single frequency.
+## Buried-bands simulation scenario.
 ##
-## Key construction fact (verified numerically before use): for
-## fda::create.fourier.basis(period = TX = 1), cos(2*pi*r*p) is symmetric
-## under reflection p -> 1-p about p=0.5 for EVERY integer r. Choosing
-## coefficients c_r = w_r * (-1)^r (all terms in phase at p=0.5) makes
-## sum_r c_r*cos(2*pi*r*p) a real, localized, band-limited pulse centered at
-## p=0.5 with decaying sidelobes -- built ENTIRELY out of cosine directions,
-## so it can be made to live EXACTLY inside a chosen low-variance direction
-## cluster of X (only the COS term at each "bump" frequency is given
-## nonzero variance; the matching SIN term, and every dominant/unused
-## direction, stay at exactly zero -- mirroring the original scenario's
-## "only sin(buried_r) is nonzero" convention, just transposed to cos and
-## widened to a 6-frequency cluster).
+## Data-generating process (one dataset per repetition):
+##   X_i(p) = dominant part + buried part, p in [0, 1]
+##     dominant part: sum_{j=1}^{10} 0.5 u_ij f_j(p), f_j(p) = (sin(0.3 j pi p) + 1) cos(0.3 j pi p),
+##                    u_ij ~ N(0, 1): smooth, strongly collinear, ~97% of X's variance;
+##     buried part:   b_i1 g1~(p) + b_i2 g2~(p), two Gaussian bands centred at p = 0.3 and 0.7
+##                    (width band_sd), orthogonalised against the top-4 eigenfunctions of the
+##                    dominant part; together they carry band_share (3%) of X's variance.
+##   beta(q, p) = [h1(q) g1~(p) - h2(q) g2~(p)] / C, h_k(q) = exp(-(q - c_k)^2 / 0.01),
+##     normalised to max |beta| = 1: two opposite sharp peaks, at (0.3, 0.3) and (0.7, 0.7).
+##   Y_i(q) = int (X_i(p) - mean X(p)) beta(q, p) dp + eps_iq, Var(eps_q) = (1 - Rsq) Var(Y_clean(q)).
+##   The methods observe X_i(p) + N(0, X_sd_error^2) noise at every grid point; Y comes from the
+##   noise-free curves.
 ##
-## Does NOT touch simulations_fofr_v2_with_ivanescus_ramsay_silverman.R,
-## main_simulations_call.R, pFFPLS_only_lambda_refine_sim.R,
-## n_sensitivity_sim.R, simulations_buried_pca_signal.R, or
-## main_buried_pca_call.R. Fits all five methods (pFFR_RS, pFFR_I, pFFPLS,
-## FFPLS, FFPLS_OB), mirroring simulations_buried_pca_signal.R's structure
-## block-for-block, so the same downstream analysis/plotting code works
-## unchanged -- only generate_fofr_data() and redo_beta_true() differ.
+## This file is sourced by run_simulation.R (inside main_buried_bands_call(), with local = TRUE),
+## which defines the configuration variables used below. It fits all five methods
+## (pFFR_RS, pFFR_I, pFFPLS, FFPLS, FFPLS_OB) in every repetition and saves one set of .Rds
+## files per repetition to `out_folder`.
 
 
-# Local generate_fofr_data() / redo_beta_true() overrides for this scenario --
+# Band functions (closed form, evaluable on any grid) -----------------------
 
-generate_fofr_data <- function(nbeta = "buried_pca_sharp",
-                               nnodesX = 100, nnodesY = 100,
-                               Rsq = 0.9, n = 100, n_validation = 50,
-                               R_fourier = 10,
-                               dominant_r = 1:4,
-                               bump_r = 5:10,
-                               dominant_sd = 1,
-                               buried_sd = 0.3) {
-
-  if (nbeta != "buried_pca_sharp") {
-    stop("generate_fofr_data() in simulations_buried_pca_sharp_signal.R only ",
-         "implements nbeta = 'buried_pca_sharp'.")
-  }
-
-  TX <- 1
-  TY <- 1
-  K_four <- 2 * R_fourier + 1  # const + R_fourier sin/cos pairs
-
-  # period = TX (full period over [0,TX]) -- same fix already validated in
-  # simulations_buried_pca_signal.R; required for exact cross-term
-  # orthogonality of every sin/cos pair, which this scenario also depends on.
-  basisX_fourier <- fda::create.fourier.basis(rangeval = c(0, TX),
-                                              nbasis = K_four,
-                                              period  = TX)
-
-  n <- n + n_validation
-
-  # Row indexing (same convention as simulations_buried_pca_signal.R,
-  # verified there against fda::eval.basis): row 1 = constant, rows
-  # 2,4,6,... = sin(2*pi*1*p), sin(2*pi*2*p), ..., rows 3,5,7,... =
-  # cos(2*pi*1*p), cos(2*pi*2*p), ...
-  row_sin <- function(r) 2 * r
-  row_cos <- function(r) 2 * r + 1
-
-  # Hann-tapered, phase-aligned bump weights: w_r tapers the ends of the
-  # frequency cluster to zero (suppresses far-field ringing relative to flat
-  # weights -- verified visually before committing, see
-  # docs/new_scenario_buried_pca_sharp_signal_2026-09-28.md), and (-1)^r
-  # aligns every term's phase at p=0.5 so they add constructively there
-  # instead of canceling.
-  n_bump <- length(bump_r)
-  w_hann <- 0.5 * (1 - cos(2 * pi * (seq_len(n_bump) - 1) / (n_bump - 1)))
-  c_bump <- w_hann * (-1)^bump_r
-
-  coefs <- matrix(0, nrow = K_four, ncol = n)
-  for (r in dominant_r) {
-    coefs[row_sin(r), ] <- stats::rnorm(n, mean = 0, sd = dominant_sd)
-    coefs[row_cos(r), ] <- stats::rnorm(n, mean = 0, sd = dominant_sd)
-  }
-  # Only the COS term at each bump_r frequency carries signal-relevant
-  # variance; the matching SIN term at those same frequencies, the constant
-  # (row 1), and every r outside dominant_r/bump_r are left at exactly 0 --
-  # deliberately unused, zero-variance directions:
-  for (r in bump_r) {
-    coefs[row_cos(r), ] <- stats::rnorm(n, mean = 0, sd = buried_sd)
-  }
-
-  X <- fda::fd(coefs, basisX_fourier)
-
-  p <- seq(0, TX, length.out = nnodesX)
-  q <- seq(0, TY, length.out = nnodesY)
-
-  # True beta's p-shape lives ENTIRELY in the span of {cos(2*pi*r*p): r in
-  # bump_r} -- by the exact cross-term orthogonality of this basis (period =
-  # TX), Y's dependence on X should collapse exactly onto the bump_r COS
-  # scores, with zero leakage from the dominant, high-variance,
-  # signal-irrelevant directions. Verified numerically before use (see
-  # scenario doc): max |correlation| with any dominant score was ~0.04,
-  # vs. up to ~0.66 with the bump scores.
-  #
-  # Computed via direct numerical (trapezoidal) integration over the
-  # EVALUATED X and beta grids, not fda::Data2fd()+fda::inprod() -- same
-  # reasoning as simulations_buried_pca_signal.R: Data2fd()'s default
-  # roughness penalty measurably distorts recovered coefficients for a
-  # basis like this one.
-  beta_p <- function(pp) {
-    z <- rep(0, length(pp))
-    for (i in seq_along(bump_r)) {
-      z <- z + c_bump[i] * cos(2 * pi * bump_r[i] * pp)
-    }
-    z
-  }
-  f <- function(q, p) sin(2 * pi * q) * beta_p(p)
-
-  beta <- outer(q, p, f)  # nnodesY x nnodesX
-
-  X_eval  <- t(fda::eval.fd(evalarg = p, fdobj = X))       # n x nnodesX
-  Xc_eval <- sweep(X_eval, 2, colMeans(X_eval), "-")        # center across subjects, per p
-
-  dp <- diff(range(p)) / (nnodesX - 1)
-  w  <- rep(dp, nnodesX)
-  w[1] <- w[1] / 2
-  w[nnodesX] <- w[nnodesX] / 2
-
-  Y_clean <- Xc_eval %*% (t(beta) * w)  # n x nnodesY
-  Y       <- Y_clean
-
-  for (q_ind in 1:length(q)) {
-    var_e       <- (1 - Rsq) * stats::var(Y_clean[, q_ind])
-    Y[, q_ind]  <- Y_clean[, q_ind] +
-      as.matrix(stats::rnorm(n = nrow(Y_clean), mean = 0, sd = sqrt(var_e)))
-  }
-
-  X         <- t(fda::eval.fd(evalarg = p, fdobj = X))
-  beta_true <- beta
-  Xc        <- Xc_eval
-
-  n_traintest <- n - n_validation
-
-  out <- list(
-    Xc       = Xc[1:n_traintest, ],
-    X        = X[1:n_traintest, ],
-    Y        = Y[1:n_traintest, ],
-    beta_true = beta_true,
-    Xc_val   = Xc[(n_traintest + 1):nrow(Xc), ],
-    X_val    = X[(n_traintest + 1):nrow(X), ],
-    Y_val    = Y[(n_traintest + 1):nrow(X), ]
-  )
-
-  return(out)
+make_band_functions <- function(band_sd = 0.035, centers = c(0.3, 0.7), n_top = 4) {
+  h_sd <- sqrt(0.005)   # width of the q-profiles: h_k(q) = exp(-(q - c_k)^2 / 0.01)
+  fj <- function(pp) sapply(1:10, function(j) (sin(0.3 * j * pi * pp) + 1) * cos(0.3 * j * pi * pp))
+  # Fine trapezoidal grid for the Gram matrix / inner products
+  pf <- seq(0, 1, length.out = 4001)
+  wf <- rep(pf[2] - pf[1], length(pf)); wf[c(1, length(pf))] <- wf[1] / 2
+  Ff <- fj(pf)
+  G  <- t(Ff) %*% (Ff * wf)                      # Gram matrix <f_j, f_k>
+  # Dominant covariance in span{f_j}: C psi = 0.25 F G a, psi = F a
+  # => eigen-problem 0.25 G a = lambda a, normalised so that a' G a = 1
+  eg <- eigen(0.25 * G, symmetric = TRUE)
+  A  <- eg$vectors[, 1:n_top, drop = FALSE]
+  A  <- sweep(A, 2, sqrt(colSums(A * (G %*% A))), "/")
+  psi_f <- Ff %*% A                              # eigenfunctions on the fine grid
+  g_raw <- function(pp, k) exp(-(pp - centers[k])^2 / (2 * band_sd^2))
+  coef_k <- lapply(1:2, function(k) colSums(psi_f * (g_raw(pf, k) * wf)))
+  # bands with their projection on the top-4 dominant eigenfunctions removed:
+  g_tilde <- lapply(1:2, function(k) {
+    force(k)
+    function(pp) as.vector(g_raw(pp, k) - fj(pp) %*% A %*% coef_k[[k]])
+  })
+  h <- list(function(qq)  exp(-(qq - centers[1])^2 / (2 * h_sd^2)),
+            function(qq) -exp(-(qq - centers[2])^2 / (2 * h_sd^2)))
+  beta_raw <- function(qq, pp) h[[1]](qq) %o% g_tilde[[1]](pp) + h[[2]](qq) %o% g_tilde[[2]](pp)
+  C_norm <- max(abs(beta_raw(pf[seq(1, 4001, 4)], pf[seq(1, 4001, 4)])))
+  list(fj = fj, g_tilde = g_tilde,
+       beta = function(qq, pp) beta_raw(qq, pp) / C_norm,
+       dom_var = 0.25 * sum(diag(G)),
+       g_norm2 = sapply(g_tilde, function(g) sum(wf * g(pf)^2)))
 }
 
 
-redo_beta_true <- function(q, p, nbeta = "buried_pca_sharp", bump_r = 5:10) {
-  n_bump <- length(bump_r)
-  w_hann <- 0.5 * (1 - cos(2 * pi * (seq_len(n_bump) - 1) / (n_bump - 1)))
-  c_bump <- w_hann * (-1)^bump_r
-  beta_p <- function(pp) {
-    z <- rep(0, length(pp))
-    for (i in seq_along(bump_r)) z <- z + c_bump[i] * cos(2 * pi * bump_r[i] * pp)
-    z
+# Data generation --------------------------------------------------------------
+
+generate_fofr_data <- function(nbeta = "buried_bands",
+                               nnodesX = 100, nnodesY = 100,
+                               Rsq = 0.9, n = 100, n_validation = 50,
+                               band_sd = 0.035, band_share = 0.03) {
+
+  if (nbeta != "buried_bands") {
+    stop("generate_fofr_data() in simulations_buried_bands.R only implements nbeta = 'buried_bands'.")
   }
-  f <- function(q, p) sin(2 * pi * q) * beta_p(p)
-  return(outer(q, p, f))
+
+  bf <- make_band_functions(band_sd = band_sd)
+  n  <- n + n_validation
+  p  <- seq(0, 1, length.out = nnodesX)
+  q  <- seq(0, 1, length.out = nnodesY)
+
+  # bands jointly carry `band_share` of X's total integrated variance
+  sd_b <- sqrt(band_share / (1 - band_share) * bf$dom_var / sum(bf$g_norm2))
+
+  U  <- matrix(stats::rnorm(n * 10), nrow = n)
+  Bs <- matrix(stats::rnorm(n * 2, sd = sd_b), nrow = n)
+  X  <- U %*% t(0.5 * bf$fj(p)) +
+        Bs[, 1] %o% bf$g_tilde[[1]](p) + Bs[, 2] %o% bf$g_tilde[[2]](p)   # n x nnodesX
+
+  beta <- bf$beta(q, p)                                                    # nnodesY x nnodesX
+
+  Xc <- sweep(X, 2, colMeans(X), "-")
+  dp <- diff(range(p)) / (nnodesX - 1)
+  w  <- rep(dp, nnodesX); w[c(1, nnodesX)] <- dp / 2
+  Y_clean <- Xc %*% (t(beta) * w)                                          # trapezoidal rule
+  Y <- Y_clean
+  for (q_ind in seq_along(q)) {
+    var_e <- (1 - Rsq) * stats::var(Y_clean[, q_ind])
+    Y[, q_ind] <- Y_clean[, q_ind] + stats::rnorm(n, mean = 0, sd = sqrt(var_e))
+  }
+
+  n_traintest <- n - n_validation
+  list(Xc        = Xc[1:n_traintest, ],
+       X         = X[1:n_traintest, ],
+       Y         = Y[1:n_traintest, ],
+       beta_true = beta,
+       Xc_val    = Xc[(n_traintest + 1):n, ],
+       X_val     = X[(n_traintest + 1):n, ],
+       Y_val     = Y[(n_traintest + 1):n, ])
+}
+
+
+# True beta on an arbitrary grid (pFFR_I returns its estimate on its own grid)
+redo_beta_true <- function(q, p, nbeta = "buried_bands", band_sd = 0.035) {
+  make_band_functions(band_sd = band_sd)$beta(q, p)
 }
 
 
@@ -210,7 +148,7 @@ mean_imse_by_row <- function(func_true,
 
 for(beta.num in num_betas)       {
 
-  for(rep_num in rep_starts:total_reps)  {
+  for(rep_num in rep_starts:rep_end)  {
 
 
     # Initialize savings:
@@ -226,22 +164,23 @@ for(beta.num in num_betas)       {
     }
 
 
-    cat("Doing beta ", beta.num, " (buried PCA signal, sharp)\n")
+    cat("Doing beta ", beta.num, " (buried bands)\n")
     cat("     rep ", rep_num, "/", total_reps, "\n")
 
 
     # Generate data -----------------------------------------------------------
     cat("    -> generating data\n")
 
+    # One fixed seed per repetition, so runs with different method settings see
+    # identical datasets (paired comparisons across runs):
+    if (!is.null(seed_base)) set.seed(seed_base + rep_num)
+
     gendata <- generate_fofr_data(nbeta = beta.num,
                                   nnodesX = nnodesX, nnodesY = nnodesY,
                                   Rsq = Rsq,
                                   n = 100, n_validation = 50,
-                                  R_fourier = R_fourier,
-                                  dominant_r = dominant_r,
-                                  bump_r = bump_r,
-                                  dominant_sd = dominant_sd,
-                                  buried_sd = buried_sd)
+                                  band_sd = band_sd,
+                                  band_share = band_share)
 
     X_gen <- gendata$X
     Y <- gendata$Y
@@ -250,10 +189,10 @@ for(beta.num in num_betas)       {
     X_gen_val <- gendata$X_val
     Y_val <- gendata$Y_val
 
-    # No predictor observation noise in this scenario -- the interesting
-    # part is X's own covariance structure, not measurement error:
-    X <- X_gen
-    X_val <- X_gen_val
+    # Measurement noise on X: one independent draw per (subject, grid point),
+    # added AFTER Y was generated from the noise-free curves:
+    X     <- X_gen     + matrix(stats::rnorm(length(X_gen),     mean = 0, sd = X_sd_error), nrow = nrow(X_gen))
+    X_val <- X_gen_val + matrix(stats::rnorm(length(X_gen_val), mean = 0, sd = X_sd_error), nrow = nrow(X_gen_val))
 
     folds <- caret::createFolds(1:nrow(Y), k = num_folds)
 
@@ -319,6 +258,7 @@ for(beta.num in num_betas)       {
 
 
 
+    if (do_pffr) {
     # CV - Ivanescu's pffr --------------------------------
 
     cat("    -> starting Ivanescu's pffr\n")
@@ -347,6 +287,7 @@ for(beta.num in num_betas)       {
       )
     )
 
+    }  # end if (do_pffr)
     # CV - pFFPLS ------------------------------------------------------------------
 
     cat("    -> starting pFFPLS\n")
@@ -717,10 +658,11 @@ for(beta.num in num_betas)       {
       }
 
 
+      if (do_pffr) {
       ## Ivanescu's pffr --------------------------------
 
       beta_hat <- coef(m_final_pffr)[["smterms"]][[1]]
-      beta_true_rebuilt <- redo_beta_true(q = beta_hat$y, p = beta_hat$x, nbeta = beta.num, bump_r = bump_r)
+      beta_true_rebuilt <- redo_beta_true(q = beta_hat$y, p = beta_hat$x, nbeta = beta.num, band_sd = band_sd)
 
       beta_df <- expand.grid(q = beta_hat$y, p = beta_hat$x)
       beta_df$z <- beta_hat$value
@@ -769,6 +711,7 @@ for(beta.num in num_betas)       {
       rm(y_pred, y_val_pred, beta_df, beta_hat, mean_imse_Y_val)
 
 
+      }  # end if (do_pffr)
       ## Ramsay & Silverman (penalized) ----
 
       m_final_rs <- cv_penalized_rs$final_model
