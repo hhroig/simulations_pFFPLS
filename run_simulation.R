@@ -60,12 +60,13 @@ main_buried_bands_call <- function(
     center = TRUE,
     n_cores = parallel::detectCores(),
     do_pffr = TRUE,      # FALSE skips pFFR_I (output folder tagged "_noPFFR")
+    do_opt_bases = TRUE, # FALSE skips FFPLS_OB (output folder tagged "_noOB"), e.g. for small K = L
     seed_base = 2026,    # repetition r uses set.seed(seed_base + r)
     results_dir = "results_simulations/buried_bands/"
 ) {
 
   KK_rs <- LL_rs <- KK
-  do_opt_bases_FFPLS <- TRUE
+  do_opt_bases_FFPLS <- do_opt_bases
 
   argvals_X <- seq(0, 1, length.out = nnodesX) # p
   argvals_Y <- seq(0, 1, length.out = nnodesY) # q
@@ -98,6 +99,7 @@ main_buried_bands_call <- function(
                        if (!is.null(seed_base)) paste0("_seed", seed_base) else "",
                        if (Rsq != 0.9) paste0("_Rsq", Rsq) else "",
                        if (!do_pffr) "_noPFFR" else "",
+                       if (!do_opt_bases) "_noOB" else "",
                        pgrid_tag,
                        "/")
 

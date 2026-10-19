@@ -79,8 +79,15 @@ study reported in the paper:
 | Components | up to 10 (PLS methods) |
 | Cross-validation | 5-fold |
 
-The remaining settings (penalty grids, etc.) are the arguments of
-`main_buried_bands_call()` in `run_simulation.R`.
+The remaining settings (penalty grids, basis sizes, etc.) are the arguments of
+`main_buried_bands_call()` in `run_simulation.R`. For example, a low-dimensional run
+with $K = L = 7$ and without FFPLS_OB:
+
+```r
+source("run_simulation.R")
+main_buried_bands_call(total_reps = 30, KK = 7, LL = 7, max_nComp = 7,
+                       do_opt_bases = FALSE)
+```
 
 **Seeds and parallel runs.** Repetition $r$ always uses `set.seed(2026 + r)`, so a
 repetition gives the same result whichever process runs it. The repetitions can therefore
