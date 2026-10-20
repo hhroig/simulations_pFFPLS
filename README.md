@@ -54,63 +54,83 @@ install.packages(c(
 | `make_plots.R` | Builds the `results_plots/` folder for a results folder |
 | `compare_methods_fofr_with_ivanescu_ramsay_silverman.R` | Boxplots, error curves, fR², timings, penalties, Excel summaries, 3D surfaces (used by `make_plots.R`) |
 | `plot_beta_heatmaps.R` | 2D heatmaps of the true and estimated coefficient surfaces (used by `make_plots.R`) |
+| `plot_example_curves.R` | Example predictor and response curves, without and with noise |
 
 All scripts are run from the project root.
 
 ## Running the study
 
+The scenarios reported in the paper are predefined in `run_simulation.R`. Each one has
+100 repetitions and writes to its own folder under `results_simulations/buried_bands/`:
+
+| Scenario | Setting | Results folder |
+|---|---|---|
+| `main` | $K = L = 40$, all five methods, measurement noise on $X$ ($\sigma_p = 1.5$) | `rep100_K40L40_sdX1.5_band0.035_seed2026/` |
+| `main_noiseless` | as `main`, without measurement noise ($\sigma_p = 0$) | `rep100_K40L40_sdX0_band0.035_seed2026/` |
+| `lowdim` | $K = L = 7$, without FFPLS_OB, up to 7 components, wider penalty grids | `rep100_K7L7_sdX1.5_band0.035_seed2026_noOB/` |
+| `lowdim_noiseless` | as `lowdim`, $\sigma_p = 0$ | `rep100_K7L7_sdX0_band0.035_seed2026_noOB/` |
+| `band0.02` | as `main`, with narrower bands (`band_sd` = 0.02) | `rep100_K40L40_sdX1.5_band0.02_seed2026/` |
+
 ```sh
-Rscript run_simulation.R            # all 100 repetitions in one process
-Rscript run_simulation.R 1 100 8    # repetitions 1-100, 8 cores
+Rscript run_simulation.R main              # all 100 repetitions in one process
+Rscript run_simulation.R main 1 100 8      # repetitions 1-100, 8 cores
+Rscript run_simulation.R lowdim_noiseless  # another scenario
 ```
 
-The arguments are `[rep_start rep_end] [n_cores] [band_sd]`. The defaults reproduce the
-study reported in the paper:
+The arguments are `<scenario> [rep_start rep_end] [n_cores]`. From R:
+
+```r
+source("run_simulation.R")
+run_scenario("lowdim", rep_starts = 1, rep_end = 10, n_cores = 4)
+run_scenario("main", dry_run = TRUE)   # only returns the output folder
+```
+
+Settings shared by all scenarios:
 
 | Setting | Value |
 |---|---|
 | Repetitions | 100 |
 | Sample size | 100 training + 50 test curves per repetition |
 | Grids | 100 equally spaced points for $p$ and for $q$ |
-| Predictor noise | $\sigma_p = 1.5$ |
-| Band width | `band_sd` = 0.035 |
+| Band width | `band_sd` = 0.035 (except `band0.02`) |
 | Response noise | $R^2 = 0.9$ |
-| Basis | $K = L = 40$ cubic B-splines (FFPLS_OB searches 10–40) |
-| Components | up to 10 (PLS methods) |
+| Components | up to 10 at $K = L = 40$, up to 7 at $K = L = 7$ (PLS methods) |
+| FFPLS_OB basis search | 10–40 (scenarios with $K = L = 40$) |
 | Cross-validation | 5-fold |
 
-The remaining settings (penalty grids, basis sizes, etc.) are the arguments of
-`main_buried_bands_call()` in `run_simulation.R`. For example, a low-dimensional run
-with $K = L = 7$ and without FFPLS_OB:
+All other settings (penalty grids, basis sizes, etc.) are arguments of
+`main_buried_bands_call()`. The scenarios list only the arguments that differ from its
+defaults, and `run_scenario()` accepts any of them as an override.
 
-```r
-source("run_simulation.R")
-main_buried_bands_call(total_reps = 30, KK = 7, LL = 7, max_nComp = 7,
-                       do_opt_bases = FALSE)
-```
+**Seeds and parallel runs.** Repetition $r$ always uses `set.seed(2026 + r)` in every
+scenario. Consequences:
 
-**Seeds and parallel runs.** Repetition $r$ always uses `set.seed(2026 + r)`, so a
-repetition gives the same result whichever process runs it. The repetitions can therefore
-be split across several processes writing to the same folder.
+- A repetition gives the same result whichever process runs it, so the repetitions can be
+  split across several processes writing to the same folder.
+- All scenarios share the same noise-free curves and responses. The noiseless scenarios
+  differ from their noisy counterparts only in the noise added to $X$.
 
-**Computing cost.** pFFR_I is single-threaded and dominates the cost: about 35 minutes
-per repetition at $K = L = 40$, with a peak of about 2 GB of RAM per process. Several
+**Computing cost.** At $K = L = 40$, pFFR_I is single-threaded and dominates the cost:
+about 35 minutes per repetition, with a peak of about 2 GB of RAM per process. Several
 processes with a few cores each are much faster than one process with many cores. For
 example, on an 8-core machine with 32 GB of RAM:
 
 ```sh
-Rscript run_simulation.R  1  25 2 &
-Rscript run_simulation.R 26  50 2 &
-Rscript run_simulation.R 51  75 2 &
-Rscript run_simulation.R 76 100 2 &
+Rscript run_simulation.R main  1  25 2 &
+Rscript run_simulation.R main 26  50 2 &
+Rscript run_simulation.R main 51  75 2 &
+Rscript run_simulation.R main 76 100 2 &
 ```
 
 This takes about 17–18 hours for the 100 repetitions. With more processes than about
-4 per 32 GB, memory runs out.
+4 per 32 GB, memory runs out. The $K = L = 7$ scenarios are much cheaper (a few minutes
+per repetition, little memory).
 
-**Output.** Results are written to
-`results_simulations/buried_bands/rep100_K40L40_sdX1.5_band0.035_seed2026/`, as one set
-of `.Rds` files per repetition `<r>`:
+**Windows path length.** Windows cannot open paths longer than 260 characters.
+`run_simulation.R` warns if an output folder is too deep for the figure files. In that
+case, move the project to a shorter path or pass a shorter `folder_name`.
+
+**Output.** Each results folder holds one set of `.Rds` files per repetition `<r>`:
 
 | File | Contents |
 |---|---|
@@ -125,7 +145,7 @@ of `.Rds` files per repetition `<r>`:
 ## Figures
 
 ```sh
-Rscript make_plots.R                                   # the default results folder
+Rscript make_plots.R                                   # the main scenario's folder
 Rscript make_plots.R results_simulations/buried_bands/<folder>/
 ```
 
@@ -142,3 +162,13 @@ This writes `results_plots/` inside the results folder:
 | `IMSEs_CVEs_Excel/` | Summary tables |
 
 pFFR_I and pFFR_RS do not use components, so their results are the same for every $H$.
+
+**Example curves.** To draw a few predictor curves without and with measurement noise,
+and their responses, from repetition 1 of the study, run:
+
+```sh
+Rscript plot_example_curves.R [rep] [X_sd_error]
+```
+
+It writes several layout options (`option_A`–`option_E`, PNG and PDF) to
+`results_simulations/buried_bands/example_curves/`.
