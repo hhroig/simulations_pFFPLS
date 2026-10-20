@@ -1,5 +1,5 @@
-# Example curves for the paper: a few predictor curves x_i(p) without and with measurement
-# noise, and their responses y_i(q). Several layout options are written so that one can be
+# Example curves for the paper: a few predictor curves X_i(p) without and with measurement
+# noise, and their responses Y_i(q). Several layout options are written so that one can be
 # chosen for the paper.
 #
 # The data are exactly those of one repetition of the study (repetition r uses
@@ -70,7 +70,9 @@ plot_example_curves <- function(rep = 1, X_sd_error = 1.5,
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
   dd <- example_curve_data(rep = rep, X_sd_error = X_sd_error)
   dd$obs <- factor(ifelse(dd$part == "with noise", "observed", "noise-free"), levels = c("noise-free", "observed"))
-  cols <- c("Subject 1" = "#2a78d6", "Subject 2" = "#eb6834", "Subject 3" = "#1baf7a")
+  # colours chosen by lightness so the subjects stay distinct in black-and-white print
+  # (greyscale ~0.15 / 0.47 / 0.66): dark navy, vermillion, mustard
+  cols <- c("Subject 1" = "#08306B", "Subject 2" = "#D55E00", "Subject 3" = "#E6AB02")
   base <- theme_bw(base_size = 12) +
     theme(panel.grid.minor = element_blank(), plot.title = element_text(size = 12),
           legend.position = "bottom", legend.box = "horizontal", legend.margin = margin(0, 0, 0, 0))
@@ -89,9 +91,9 @@ plot_example_curves <- function(rep = 1, X_sd_error = 1.5,
     g  <- ggplot(x, aes(t, value, colour = subject))
     if (nrow(noisy) > 0) {
       g <- g + switch(style,
-        dashed      = geom_line(data = noisy, aes(linetype = obs), linewidth = 0.45, alpha = 0.6),
-        translucent = geom_line(data = noisy, aes(linetype = obs), linewidth = 0.45, alpha = 0.35),
-        points      = geom_point(data = noisy, size = 0.7, alpha = 0.45),
+        dashed      = geom_line(data = noisy, aes(linetype = obs), linewidth = 0.5, alpha = 0.7),
+        translucent = geom_line(data = noisy, aes(linetype = obs), linewidth = 0.5, alpha = 0.5),
+        points      = geom_point(data = noisy, size = 0.8, alpha = 0.6),
         solid       = geom_line(data = noisy, linewidth = 0.6))
     }
     if (nrow(clean) > 0) {
@@ -103,12 +105,12 @@ plot_example_curves <- function(rep = 1, X_sd_error = 1.5,
     if (style %in% c("dashed", "translucent")) {
       g <- g + scale_linetype_manual(values = c("noise-free" = "solid", "observed" = if (style == "dashed") "22" else "solid"),
                                      name = NULL, drop = FALSE) +
-        guides(linetype = guide_legend(override.aes = list(alpha = c(1, if (style == "dashed") 0.6 else 0.35),
-                                                           linewidth = c(0.9, 0.45))))
+        guides(linetype = guide_legend(override.aes = list(alpha = c(1, if (style == "dashed") 0.7 else 0.5),
+                                                           linewidth = c(0.9, 0.5))))
     }
     g
   }
-  tx <- "Predictor curves  x(p)"; ty <- "Response curves  y(q)"
+  tx <- "Predictor curves  X(p)"; ty <- "Response curves  Y(q)"
   both <- c("noise-free", "with noise")
 
   # A: noise-free solid, observed dashed and translucent; x and y side by side
@@ -127,7 +129,7 @@ plot_example_curves <- function(rep = 1, X_sd_error = 1.5,
        "option_C_grid_2x2", 9, 6.5)
 
   # D: decomposition: x (noise-free and observed), its buried bands alone, and y
-  pb <- panel("x", "buried bands", "Buried bands of x(p) (the part that drives y)", "solid") +
+  pb <- panel("x", "buried bands", "Buried bands of X(p) (the part that drives Y)", "solid") +
     geom_vline(xintercept = c(0.3, 0.7), colour = "grey55", linetype = "dotted")
   save(combine(panel("x", both, tx, "translucent"), pb, panel("y", both, ty, "translucent")),
        "option_D_decomposition", 13, 4.3)
