@@ -121,21 +121,23 @@ plot_example_curves <- function(rep = 1, X_sd_error = 1.5,
   save(combine(panel("x", both, tx, "translucent"), panel("y", both, ty, "translucent")),
        "option_B_solid_translucent", 9, 4.3)
 
-  # C: 2 x 2 grid: top row noise-free, bottom row observed
-  save(combine(panel("x", "noise-free", paste(tx, "- noise-free"), "solid"),
-               panel("y", "noise-free", paste(ty, "- noise-free"), "solid"),
-               panel("x", "with noise", paste(tx, "- observed"), "solid"),
-               panel("y", "with noise", paste(ty, "- observed"), "solid"), nrow = 2),
+  # C: 2 x 2 grid: top row noise-free, bottom row observed. Both X(p) panels share one
+  # vertical scale, and so do both Y(q) panels, so the effect of the noise is comparable.
+  ylim_x <- range(dd$value[dd$domain == "x" & dd$part %in% both])
+  ylim_y <- range(dd$value[dd$domain == "y" & dd$part %in% both])
+  save(combine(panel("x", "noise-free", paste(tx, "- noise-free"), "solid") + coord_cartesian(ylim = ylim_x),
+               panel("y", "noise-free", paste(ty, "- noise-free"), "solid") + coord_cartesian(ylim = ylim_y),
+               panel("x", "with noise", paste(tx, "- observed"), "solid") + coord_cartesian(ylim = ylim_x),
+               panel("y", "with noise", paste(ty, "- observed"), "solid") + coord_cartesian(ylim = ylim_y), nrow = 2),
        "option_C_grid_2x2", 9, 6.5)
 
   # C, as three separate EPS files (plus PNG previews): noise-free X(p), observed X(p) and
-  # observed Y(q). Both X(p) plots share the vertical scale of the observed curves. Only
+  # observed Y(q), on the same vertical scales as the grid above. Only
   # opaque lines are used, since EPS does not support transparency.
-  ylim_x <- range(dd$value[dd$domain == "x" & dd$part %in% both])
   sep <- list(
     option_C_X_noisefree = panel("x", "noise-free", paste(tx, "- noise-free"), "solid") + coord_cartesian(ylim = ylim_x),
     option_C_X_observed  = panel("x", "with noise", paste(tx, "- observed"), "solid") + coord_cartesian(ylim = ylim_x),
-    option_C_Y_observed  = panel("y", "with noise", paste(ty, "- observed"), "solid")
+    option_C_Y_observed  = panel("y", "with noise", paste(ty, "- observed"), "solid") + coord_cartesian(ylim = ylim_y)
   )
   for (nm in names(sep)) {
     ggsave(file.path(out_dir, paste0(nm, ".eps")), sep[[nm]], device = "eps", width = 5, height = 4, bg = "white")
