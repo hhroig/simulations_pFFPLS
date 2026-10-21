@@ -131,12 +131,13 @@ plot_example_curves <- function(rep = 1, X_sd_error = 1.5,
                panel("y", "with noise", paste(ty, "- observed"), "solid") + coord_cartesian(ylim = ylim_y), nrow = 2),
        "option_C_grid_2x2", 9, 6.5)
 
-  # C, as three separate EPS files (plus PNG previews): noise-free X(p), observed X(p) and
-  # observed Y(q), on the same vertical scales as the grid above. Only
+  # C, as four separate EPS files (plus PNG previews): noise-free and observed X(p), and
+  # noise-free and observed Y(q), on the same vertical scales as the grid above. Only
   # opaque lines are used, since EPS does not support transparency.
   sep <- list(
     option_C_X_noisefree = panel("x", "noise-free", paste(tx, "- noise-free"), "solid") + coord_cartesian(ylim = ylim_x),
     option_C_X_observed  = panel("x", "with noise", paste(tx, "- observed"), "solid") + coord_cartesian(ylim = ylim_x),
+    option_C_Y_noisefree = panel("y", "noise-free", paste(ty, "- noise-free"), "solid") + coord_cartesian(ylim = ylim_y),
     option_C_Y_observed  = panel("y", "with noise", paste(ty, "- observed"), "solid") + coord_cartesian(ylim = ylim_y)
   )
   for (nm in names(sep)) {
