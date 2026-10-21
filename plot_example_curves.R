@@ -125,11 +125,13 @@ plot_example_curves <- function(rep = 1, X_sd_error = 1.5,
   # vertical scale, and so do both Y(q) panels, so the effect of the noise is comparable.
   ylim_x <- range(dd$value[dd$domain == "x" & dd$part %in% both])
   ylim_y <- range(dd$value[dd$domain == "y" & dd$part %in% both])
-  save(combine(panel("x", "noise-free", paste(tx, "- noise-free"), "solid") + coord_cartesian(ylim = ylim_x),
-               panel("y", "noise-free", paste(ty, "- noise-free"), "solid") + coord_cartesian(ylim = ylim_y),
-               panel("x", "with noise", paste(tx, "- observed"), "solid") + coord_cartesian(ylim = ylim_x),
-               panel("y", "with noise", paste(ty, "- observed"), "solid") + coord_cartesian(ylim = ylim_y), nrow = 2),
-       "option_C_grid_2x2", 9, 6.5)
+  gC <- combine(panel("x", "noise-free", paste(tx, "- noise-free"), "solid") + coord_cartesian(ylim = ylim_x),
+                panel("y", "noise-free", paste(ty, "- noise-free"), "solid") + coord_cartesian(ylim = ylim_y),
+                panel("x", "with noise", paste(tx, "- observed"), "solid") + coord_cartesian(ylim = ylim_x),
+                panel("y", "with noise", paste(ty, "- observed"), "solid") + coord_cartesian(ylim = ylim_y), nrow = 2)
+  save(gC, "option_C_grid_2x2", 9, 6.5)
+  # EPS version of the grid (opaque lines only, so EPS can hold it)
+  ggsave(file.path(out_dir, "option_C_grid_2x2.eps"), gC, device = "eps", width = 9, height = 6.5, bg = "white")
 
   # C, as four separate EPS files (plus PNG previews): noise-free and observed X(p), and
   # noise-free and observed Y(q), on the same vertical scales as the grid above. Only

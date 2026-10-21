@@ -171,7 +171,8 @@ Rscript plot_example_curves.R [rep] [X_sd_error]
 ```
 
 It writes several layout options (`option_A`–`option_E`, PNG and PDF) to
-`results_simulations/buried_bands/example_curves/`. Option C is also written as four separate EPS files
+`results_simulations/buried_bands/example_curves/`. The option C grid is also saved as EPS (`option_C_grid_2x2.eps`), and option C is also
+written as four separate EPS files
 (`option_C_X_noisefree`, `option_C_X_observed`, `option_C_Y_noisefree`,
 `option_C_Y_observed`); the two X(p) plots share one vertical scale and the two Y(q)
 plots another.
