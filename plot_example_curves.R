@@ -128,6 +128,20 @@ plot_example_curves <- function(rep = 1, X_sd_error = 1.5,
                panel("y", "with noise", paste(ty, "- observed"), "solid"), nrow = 2),
        "option_C_grid_2x2", 9, 6.5)
 
+  # C, as three separate EPS files (plus PNG previews): noise-free X(p), observed X(p) and
+  # observed Y(q). Both X(p) plots share the vertical scale of the observed curves. Only
+  # opaque lines are used, since EPS does not support transparency.
+  ylim_x <- range(dd$value[dd$domain == "x" & dd$part %in% both])
+  sep <- list(
+    option_C_X_noisefree = panel("x", "noise-free", paste(tx, "- noise-free"), "solid") + coord_cartesian(ylim = ylim_x),
+    option_C_X_observed  = panel("x", "with noise", paste(tx, "- observed"), "solid") + coord_cartesian(ylim = ylim_x),
+    option_C_Y_observed  = panel("y", "with noise", paste(ty, "- observed"), "solid")
+  )
+  for (nm in names(sep)) {
+    ggsave(file.path(out_dir, paste0(nm, ".eps")), sep[[nm]], device = "eps", width = 5, height = 4, bg = "white")
+    ggsave(file.path(out_dir, paste0(nm, ".png")), sep[[nm]], width = 5, height = 4, dpi = 300, bg = "white")
+  }
+
   # D: decomposition: x (noise-free and observed), its buried bands alone, and y
   pb <- panel("x", "buried bands", "Buried bands of X(p) (the part that drives Y)", "solid") +
     geom_vline(xintercept = c(0.3, 0.7), colour = "grey55", linetype = "dotted")
