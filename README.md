@@ -55,6 +55,7 @@ install.packages(c(
 | `compare_methods_fofr_with_ivanescu_ramsay_silverman.R` | Boxplots, error curves, fR², timings, penalties, Excel summaries, 3D surfaces (used by `make_plots.R`) |
 | `plot_beta_heatmaps.R` | 2D heatmaps of the true and estimated coefficient surfaces (used by `make_plots.R`) |
 | `plot_example_curves.R` | Example predictor and response curves, without and with noise |
+| `plot_beta_reps_3D.R` | 3D surfaces estimated in single repetitions, one folder per repetition |
 
 All scripts are run from the project root.
 
@@ -162,6 +163,20 @@ This writes `results_plots/` inside the results folder:
 | `IMSEs_CVEs_Excel/` | Summary tables |
 
 pFFR_I and pFFR_RS do not use components, so their results are the same for every $H$.
+
+**Single repetitions in 3D.** The surfaces above are means over repetitions. To see the
+surfaces estimated in individual repetitions, run:
+
+```sh
+Rscript plot_beta_reps_3D.R [results_folder] [reps]   # reps e.g. 1:5 (default) or 1,7,12
+```
+
+This writes `results_plots/3DBeta2D_buried_bands_rep<r>/` for each repetition `r`, with the
+same file names and `shared_scale/` / `owned_scale/` subfolders as `3DBeta2D_buried_bands/`.
+The shared scale covers every method, every $H$ and the true surface of that repetition.
+Seeds are paired across scenarios, so repetition `r` uses the same data set in every
+scenario. Each repetition takes about 40 s and 130 MB (PDF, EPS and PNG); the `formats`
+argument of `plot_beta_reps_3D()` drops formats you do not need.
 
 **Example curves.** To draw a few predictor curves without and with measurement noise,
 and their responses, from repetition 1 of the study, run:
